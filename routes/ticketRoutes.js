@@ -3,6 +3,11 @@ const router = express.Router();
 const { poolConnect, sql, pool } = require('../config/db');
 const auth = require('../middleware/auth');
 
+// Extract domain from email
+const extractDomain = (email) => {
+  return email?.split('@')[1] || null;
+};
+
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {
   await poolConnect;
@@ -23,9 +28,7 @@ router.post("/", auth, async (req, res) => {
   } = req.body;
 
   const createdBy = req.user?.email || null;
-
-  console.log("📥 Ticket data:", req.body);
-  console.log("👤 Created by:", createdBy);
+  const domain = extractDomain(createdBy);
 
   try {
     const request = pool.request();
@@ -43,15 +46,15 @@ router.post("/", auth, async (req, res) => {
       .input("attachments", sql.NVarChar(1000), attachments)
       .input("isInternal", sql.Bit, isInternal || false)
       .input("createdBy", sql.NVarChar(255), createdBy)
+      .input("domain", sql.NVarChar(255), domain)
       .query(`
         INSERT INTO Tickets 
-        (title, description, priority, type, department, assignedTo, category, slaLevel, dueDate, tags, attachments, isInternal, createdBy)
+        (title, description, priority, type, department, assignedTo, category, slaLevel, dueDate, tags, attachments, isInternal, createdBy, domain)
         VALUES 
-        (@title, @description, @priority, @type, @department, @assignedTo, @category, @slaLevel, @dueDate, @tags, @attachments, @isInternal, @createdBy)
+        (@title, @description, @priority, @type, @department, @assignedTo, @category, @slaLevel, @dueDate, @tags, @attachments, @isInternal, @createdBy, @domain)
       `);
 
-    console.log("✅ Ticket inserted into database");
-    res.status(201).json({ message: "Ticket created successfully" });
+    res.status(201).json({ message: "✅ Ticket created successfully" });
 
   } catch (err) {
     console.error("❌ Ticket creation failed:", err);
@@ -59,12 +62,23 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-
-// GET ALL TICKETS
+// GET ALL TICKETS (Domain Based)
 router.get('/', auth, async (req, res) => {
   await poolConnect;
+
+  const email = req.user?.email;
+  const domain = extractDomain(email);
+
   try {
-    const result = await pool.request().query(`SELECT * FROM Tickets ORDER BY createdAt DESC`);
+    const request = pool.request();
+    request.input("domain", sql.NVarChar(255), domain);
+
+    const result = await request.query(`
+      SELECT * FROM Tickets 
+      WHERE domain = @domain 
+      ORDER BY createdAt DESC
+    `);
+
     res.json(result.recordset);
   } catch (err) {
     console.error('Error fetching tickets:', err);

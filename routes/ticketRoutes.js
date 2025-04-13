@@ -3,11 +3,6 @@ const router = express.Router();
 const { poolConnect, sql, pool } = require('../config/db');
 const auth = require('../middleware/auth');
 
-// Extract domain from email
-const extractDomain = (email) => {
-  return email?.split('@')[1] || null;
-};
-
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {
   await poolConnect;
@@ -28,7 +23,7 @@ router.post("/", auth, async (req, res) => {
   } = req.body;
 
   const createdBy = req.user?.email || null;
-  const domain = extractDomain(createdBy);
+  const domain = req.user?.domain || null;
 
   try {
     const request = pool.request();
@@ -54,7 +49,7 @@ router.post("/", auth, async (req, res) => {
         (@title, @description, @priority, @type, @department, @assignedTo, @category, @slaLevel, @dueDate, @tags, @attachments, @isInternal, @createdBy, @domain)
       `);
 
-    res.status(201).json({ message: "✅ Ticket created successfully" });
+    res.status(201).json({ message: "Ticket created successfully" });
 
   } catch (err) {
     console.error("❌ Ticket creation failed:", err);
@@ -62,20 +57,21 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// GET ALL TICKETS (Domain Based)
+// GET ALL TICKETS (Domain and user-specific filtering)
 router.get('/', auth, async (req, res) => {
   await poolConnect;
 
-  const email = req.user?.email;
-  const domain = extractDomain(email);
+  const userEmail = req.user?.email;
+  const domain = req.user?.domain;
 
   try {
-    const request = pool.request();
-    request.input("domain", sql.NVarChar(255), domain);
+    const request = pool.request()
+      .input("email", sql.NVarChar(255), userEmail)
+      .input("domain", sql.NVarChar(255), domain);
 
     const result = await request.query(`
       SELECT * FROM Tickets 
-      WHERE domain = @domain 
+      WHERE domain = @domain AND (createdBy = @email OR assignedTo = @email)
       ORDER BY createdAt DESC
     `);
 
@@ -135,14 +131,11 @@ router.post('/:id/notes', auth, async (req, res) => {
       VALUES (@ticketId, @comment, @status, @createdBy)
     `);
 
-    // update main ticket status
-    const updateStatusRequest = pool.request()
+    // Update ticket status
+    await pool.request()
       .input('id', sql.Int, id)
-      .input('status', sql.NVarChar, status);
-
-    await updateStatusRequest.query(`
-      UPDATE Tickets SET status = @status WHERE id = @id
-    `);
+      .input('status', sql.NVarChar, status)
+      .query(`UPDATE Tickets SET status = @status WHERE id = @id`);
 
     res.status(201).json({ message: 'Note added and status updated' });
   } catch (err) {
@@ -157,8 +150,10 @@ router.delete('/:id/notes/:noteId', auth, async (req, res) => {
   const { noteId } = req.params;
 
   try {
-    const request = pool.request().input('noteId', sql.Int, noteId);
-    await request.query(`DELETE FROM Notes WHERE id = @noteId`);
+    await pool.request()
+      .input('noteId', sql.Int, noteId)
+      .query(`DELETE FROM Notes WHERE id = @noteId`);
+
     res.json({ message: 'Note deleted successfully' });
   } catch (err) {
     console.error('Error deleting note:', err);

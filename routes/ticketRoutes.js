@@ -3,6 +3,11 @@ const router = express.Router();
 const { poolConnect, sql, pool } = require('../config/db');
 const auth = require('../middleware/auth');
 
+// Helper to extract domain
+const getDomainFromEmail = (email) => {
+  return email.split('@')[1].toLowerCase();
+};
+
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {
   await poolConnect;
@@ -23,7 +28,7 @@ router.post("/", auth, async (req, res) => {
   } = req.body;
 
   const createdBy = req.user?.email || null;
-  const domain = req.user?.domain || null;
+  const domain = getDomainFromEmail(createdBy);
 
   try {
     const request = pool.request();
@@ -49,7 +54,7 @@ router.post("/", auth, async (req, res) => {
         (@title, @description, @priority, @type, @department, @assignedTo, @category, @slaLevel, @dueDate, @tags, @attachments, @isInternal, @createdBy, @domain)
       `);
 
-    res.status(201).json({ message: "Ticket created successfully" });
+    res.status(201).json({ message: "✅ Ticket created successfully" });
 
   } catch (err) {
     console.error("❌ Ticket creation failed:", err);
@@ -57,23 +62,21 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// GET ALL TICKETS (Domain and user-specific filtering)
+// GET ALL TICKETS - Domain filtered + Personal visibility
 router.get('/', auth, async (req, res) => {
   await poolConnect;
-
   const userEmail = req.user?.email;
-  const domain = req.user?.domain;
+  const userDomain = getDomainFromEmail(userEmail);
 
   try {
-    const request = pool.request()
+    const result = await pool.request()
+      .input("domain", sql.NVarChar(255), userDomain)
       .input("email", sql.NVarChar(255), userEmail)
-      .input("domain", sql.NVarChar(255), domain);
-
-    const result = await request.query(`
-      SELECT * FROM Tickets 
-      WHERE domain = @domain AND (createdBy = @email OR assignedTo = @email)
-      ORDER BY createdAt DESC
-    `);
+      .query(`
+        SELECT * FROM Tickets 
+        WHERE domain = @domain AND (createdBy = @email OR assignedTo = @email)
+        ORDER BY createdAt DESC
+      `);
 
     res.json(result.recordset);
   } catch (err) {
@@ -82,20 +85,27 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// GET TICKET BY ID
+// GET SINGLE TICKET WITH NOTES (with domain filtering)
 router.get('/:id', auth, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
+  const userEmail = req.user?.email;
+  const userDomain = getDomainFromEmail(userEmail);
 
   try {
-    const request = pool.request().input('id', sql.Int, id);
+    const request = pool.request()
+      .input("id", sql.Int, id)
+      .input("email", sql.NVarChar(255), userEmail)
+      .input("domain", sql.NVarChar(255), userDomain);
 
     const ticketResult = await request.query(`
-      SELECT * FROM Tickets WHERE id = @id
+      SELECT * FROM Tickets 
+      WHERE id = @id AND domain = @domain 
+        AND (createdBy = @email OR assignedTo = @email)
     `);
 
     if (ticketResult.recordset.length === 0) {
-      return res.status(404).json({ error: 'Ticket not found' });
+      return res.status(404).json({ error: "Ticket not found" });
     }
 
     const notesResult = await request.query(`
@@ -112,7 +122,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// ADD NOTE TO TICKET
+// ADD NOTE TO A TICKET
 router.post('/:id/notes', auth, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
@@ -131,11 +141,11 @@ router.post('/:id/notes', auth, async (req, res) => {
       VALUES (@ticketId, @comment, @status, @createdBy)
     `);
 
-    // Update ticket status
-    await pool.request()
+    const updateRequest = pool.request()
       .input('id', sql.Int, id)
-      .input('status', sql.NVarChar, status)
-      .query(`UPDATE Tickets SET status = @status WHERE id = @id`);
+      .input('status', sql.NVarChar, status);
+
+    await updateRequest.query(`UPDATE Tickets SET status = @status WHERE id = @id`);
 
     res.status(201).json({ message: 'Note added and status updated' });
   } catch (err) {

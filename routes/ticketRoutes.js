@@ -3,7 +3,11 @@ const router = express.Router();
 const { poolConnect, sql, pool } = require('../config/db');
 const auth = require('../middleware/auth');
 
-const getDomainFromEmail = (email) => email.split('@')[1].toLowerCase();
+// Safe domain extractor
+const getDomainFromEmail = (email) => {
+  if (!email || !email.includes('@')) return '';
+  return email.split('@')[1].toLowerCase();
+};
 
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {

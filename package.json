@@ -1,15 +1,16 @@
 {
   "name": "ticxnova",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Ticxnova backend API",
+  "main": "app.js",
   "scripts": {
-  "start": "node app.js",
-  "test": "echo \"No tests yet\""
-},
+    "start": "node app.js",
+    "build": "echo \"No build needed\"",
+    "test": "echo \"No tests yet\""
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -17,5 +18,8 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mssql": "^11.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

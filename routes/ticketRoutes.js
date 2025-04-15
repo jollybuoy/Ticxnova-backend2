@@ -163,10 +163,17 @@ router.delete('/:id/notes/:noteId', auth, async (req, res) => {
 // DASHBOARD SUMMARY DATA
 router.get('/dashboard/summary', auth, async (req, res) => {
   await poolConnect;
-  const userEmail = req.user?.email;
-  const userDomain = getDomainFromEmail(userEmail);
 
   try {
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      console.error("⚠️ No user email in JWT token");
+      return res.status(401).json({ error: "Unauthorized - No email in token" });
+    }
+
+    const userDomain = getDomainFromEmail(userEmail);
+    console.log("🔍 Extracted domain:", userDomain);
+
     const request = pool.request().input('domain', sql.NVarChar(255), userDomain);
 
     const summary = await request.query(`
@@ -177,6 +184,7 @@ router.get('/dashboard/summary', auth, async (req, res) => {
       FROM Tickets
       WHERE domain = @domain
     `);
+    console.log("✅ Ticket summary query successful");
 
     const priorities = await request.query(`
       SELECT priority, COUNT(*) AS count 
@@ -210,9 +218,10 @@ router.get('/dashboard/summary', auth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Dashboard summary error:", err);
+    console.error("❌ Dashboard summary error:", err);
     res.status(500).json({ error: "Failed to fetch dashboard data" });
   }
 });
+
 
 module.exports = router;

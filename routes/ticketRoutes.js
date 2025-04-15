@@ -13,7 +13,6 @@ router.get("/sla-stats", authMiddleware, async (req, res) => {
     const request = pool.request();
     request.input("domain", sql.NVarChar, domain);
 
-    // Dummy stats - Replace with real logic as needed
     const stats = {
       avgResolutionTime: 2.3,
       slaViolations: 1,
@@ -58,7 +57,7 @@ router.get("/activity-log", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Dashboard Summary Route (used by frontend)
+// ✅ Dashboard Summary Route
 router.get("/dashboard/summary", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -86,6 +85,29 @@ router.get("/dashboard/summary", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("❌ Dashboard summary fetch failed:", err);
     res.status(500).json({ error: "Failed to fetch dashboard summary" });
+  }
+});
+
+// ✅ All Tickets Route (Add this!)
+router.get("/", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+
+  try {
+    const request = pool.request();
+    request.input("domain", sql.NVarChar, domain);
+
+    const result = await request.query(`
+      SELECT id, title, description, priority, status, createdBy, createdAt
+      FROM Tickets
+      WHERE domain = @domain
+      ORDER BY createdAt DESC
+    `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ All tickets fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch tickets" });
   }
 });
 

@@ -3,28 +3,14 @@ const router = express.Router();
 const { poolConnect, sql, pool } = require('../config/db');
 const auth = require('../middleware/auth');
 
-// Helper to extract domain
-const getDomainFromEmail = (email) => {
-  return email.split('@')[1].toLowerCase();
-};
+const getDomainFromEmail = (email) => email.split('@')[1].toLowerCase();
 
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {
   await poolConnect;
-
   const {
-    title,
-    description,
-    priority,
-    type,
-    department,
-    assignedTo,
-    category,
-    slaLevel,
-    dueDate,
-    tags,
-    attachments,
-    isInternal
+    title, description, priority, type, department, assignedTo,
+    category, slaLevel, dueDate, tags, attachments, isInternal
   } = req.body;
 
   const createdBy = req.user?.email || null;
@@ -55,14 +41,13 @@ router.post("/", auth, async (req, res) => {
       `);
 
     res.status(201).json({ message: "✅ Ticket created successfully" });
-
   } catch (err) {
     console.error("❌ Ticket creation failed:", err);
     res.status(500).json({ error: "Failed to create ticket" });
   }
 });
 
-// GET ALL TICKETS - Domain filtered + Personal visibility
+// GET ALL TICKETS
 router.get('/', auth, async (req, res) => {
   await poolConnect;
   const userEmail = req.user?.email;
@@ -85,7 +70,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// GET SINGLE TICKET WITH NOTES (with domain filtering)
+// GET SINGLE TICKET
 router.get('/:id', auth, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
@@ -168,6 +153,61 @@ router.delete('/:id/notes/:noteId', auth, async (req, res) => {
   } catch (err) {
     console.error('Error deleting note:', err);
     res.status(500).json({ error: 'Failed to delete note' });
+  }
+});
+
+// DASHBOARD SUMMARY DATA
+router.get('/dashboard/summary', auth, async (req, res) => {
+  await poolConnect;
+  const userEmail = req.user?.email;
+  const userDomain = getDomainFromEmail(userEmail);
+
+  try {
+    const request = pool.request().input('domain', sql.NVarChar(255), userDomain);
+
+    const summary = await request.query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) AS open,
+        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closed
+      FROM Tickets
+      WHERE domain = @domain
+    `);
+
+    const priorities = await request.query(`
+      SELECT priority, COUNT(*) AS count 
+      FROM Tickets 
+      WHERE domain = @domain 
+      GROUP BY priority
+    `);
+
+    const types = await request.query(`
+      SELECT type, COUNT(*) AS count 
+      FROM Tickets 
+      WHERE domain = @domain 
+      GROUP BY type
+    `);
+
+    const trends = await request.query(`
+      SELECT 
+        DATENAME(MONTH, createdAt) AS month, 
+        COUNT(*) AS count
+      FROM Tickets
+      WHERE domain = @domain
+      GROUP BY DATENAME(MONTH, createdAt), MONTH(createdAt)
+      ORDER BY MONTH(createdAt)
+    `);
+
+    res.json({
+      totalTickets: summary.recordset[0],
+      priorities: priorities.recordset,
+      types: types.recordset,
+      monthlyTrends: trends.recordset
+    });
+
+  } catch (err) {
+    console.error("Dashboard summary error:", err);
+    res.status(500).json({ error: "Failed to fetch dashboard data" });
   }
 });
 

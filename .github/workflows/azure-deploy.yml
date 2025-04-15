@@ -1,9 +1,7 @@
-name: Deploy Node.js Backend to Azure App Service
+name: Deploy Node.js Backend to Azure Web App
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # ✅ Manual trigger only
 
 jobs:
   build-and-deploy:
@@ -22,16 +20,24 @@ jobs:
         run: npm install
 
       - name: Zip backend code
-        run: zip -r backend.zip ./*
+        run: zip -r release.zip .
 
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Optional: Stop App Service before deploy (uncomment if needed)
+      # - name: Stop App Service
+      #   run: az webapp stop --name ticxnova --resource-group <your-resource-group>
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'ticxnova'
-          slot-name: 'production'
-          package: backend.zip
+          app-name: ticxnova
+          package: release.zip
+          cleanup: true  # ✅ Prevent conflict errors
+
+      # Optional: Start App Service after deploy
+      # - name: Start App Service
+      #   run: az webapp start --name ticxnova --resource-group <your-resource-group>

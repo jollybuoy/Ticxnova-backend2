@@ -1,4 +1,3 @@
-// ...existing imports
 const express = require("express");
 const { pool, sql, poolConnect } = require("../config/db");
 const authMiddleware = require("../middleware/auth");
@@ -58,3 +57,6 @@ router.get("/activity-log", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch activity log" });
   }
 });
+
+// ✅ Missing export added here:
+module.exports = router;

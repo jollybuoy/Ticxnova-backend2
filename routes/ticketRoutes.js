@@ -9,6 +9,7 @@ const getDomainFromEmail = (email) => {
   return email.split('@')[1].toLowerCase();
 };
 
+
 // CREATE TICKET
 router.post("/", auth, async (req, res) => {
   await poolConnect;

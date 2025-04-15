@@ -9,50 +9,51 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
-// ✅ Middleware
+// ✅ CORS Configuration
 app.use(cors({
-  origin: '*', // You can restrict this to frontend URL if needed
+  origin: '*', // ✅ In production, replace with specific frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// ✅ JSON Middleware
 app.use(express.json());
 
-// Optional: Log each request (for dev or debugging)
+// ✅ Request Logger (optional but useful for Azure logs)
 app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.url}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
-// ✅ Connect to Azure SQL
+// ✅ Database Connection
 poolConnect
   .then(() => console.log('✅ Connected to Azure SQL Database'))
-  .catch(err => console.error('❌ DB Connection Failed:', err));
+  .catch(err => {
+    console.error('❌ DB Connection Failed:', err);
+    process.exit(1); // Exit on DB failure
+  });
 
 // ✅ Routes
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/tickets', require('./routes/ticketRoutes'));
 
-const ticketRoutes = require('./routes/ticketRoutes');
-app.use('/api/tickets', ticketRoutes);
-
-// Optional: Health check route
+// ✅ Health Check (Azure will call this)
 app.get('/', (req, res) => {
-  res.send('🚀 Ticxnova API is up and running!');
+  res.status(200).send('🚀 Ticxnova API is up and running!');
 });
 
-// ✅ 404 - Not Found Handler
+// ✅ 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// ✅ Global Error Handler (catch all)
+// ✅ Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('❌ Unhandled Error:', err);
+  console.error('❌ Unhandled Error:', err.stack || err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// ✅ Start Server
+// ✅ Start Server on Azure Expected PORT
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

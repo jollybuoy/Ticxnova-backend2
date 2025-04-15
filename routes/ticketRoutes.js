@@ -162,19 +162,15 @@ router.delete('/:id/notes/:noteId', auth, async (req, res) => {
 });
 
 // DASHBOARD SUMMARY DATA
+// DASHBOARD SUMMARY DATA
 router.get('/dashboard/summary', auth, async (req, res) => {
   await poolConnect;
+  const userEmail = req.user?.email;
+  const userDomain = req.user?.domain;
+
+  console.log("📊 Dashboard summary requested by:", userEmail, "Domain:", userDomain);
 
   try {
-    const userEmail = req.user?.email;
-    if (!userEmail) {
-      console.error("⚠️ No user email in JWT token");
-      return res.status(401).json({ error: "Unauthorized - No email in token" });
-    }
-
-    const userDomain = getDomainFromEmail(userEmail);
-    console.log("🔍 Extracted domain:", userDomain);
-
     const request = pool.request().input('domain', sql.NVarChar(255), userDomain);
 
     const summary = await request.query(`
@@ -185,7 +181,6 @@ router.get('/dashboard/summary', auth, async (req, res) => {
       FROM Tickets
       WHERE domain = @domain
     `);
-    console.log("✅ Ticket summary query successful");
 
     const priorities = await request.query(`
       SELECT priority, COUNT(*) AS count 
@@ -211,11 +206,12 @@ router.get('/dashboard/summary', auth, async (req, res) => {
       ORDER BY MONTH(createdAt)
     `);
 
+    // ✅ Safe defaults for empty data
     res.json({
-      totalTickets: summary.recordset[0],
-      priorities: priorities.recordset,
-      types: types.recordset,
-      monthlyTrends: trends.recordset
+      totalTickets: summary.recordset[0] || { total: 0, open: 0, closed: 0 },
+      priorities: priorities.recordset || [],
+      types: types.recordset || [],
+      monthlyTrends: trends.recordset || []
     });
 
   } catch (err) {
@@ -223,6 +219,7 @@ router.get('/dashboard/summary', auth, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch dashboard data" });
   }
 });
+
 
 
 module.exports = router;

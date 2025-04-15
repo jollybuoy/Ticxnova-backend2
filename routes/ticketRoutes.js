@@ -208,11 +208,12 @@ router.get('/dashboard/summary', auth, async (req, res) => {
 
     // ✅ Safe defaults for empty data
     res.json({
-      totalTickets: summary.recordset[0] || { total: 0, open: 0, closed: 0 },
-      priorities: priorities.recordset || [],
-      types: types.recordset || [],
-      monthlyTrends: trends.recordset || []
-    });
+  totalTickets: summary.recordset[0] || { total: 0, open: 0, closed: 0 },
+  priorities: priorities.recordset || [],
+  types: types.recordset || [],
+  monthlyTrends: trends.recordset || []
+});
+
 
   } catch (err) {
     console.error("❌ Dashboard summary error:", err);

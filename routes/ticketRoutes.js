@@ -87,6 +87,87 @@ router.get("/dashboard/summary", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch dashboard summary" });
   }
 });
+router.get("/dashboard/types", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+
+  try {
+    const result = await pool.request()
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT type, COUNT(*) as count
+        FROM Tickets
+        WHERE domain = @domain
+        GROUP BY type
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Types fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch ticket types" });
+  }
+});
+router.get("/dashboard/status", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+
+  try {
+    const result = await pool.request()
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT status, COUNT(*) as count
+        FROM Tickets
+        WHERE domain = @domain
+        GROUP BY status
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Status fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch ticket status" });
+  }
+});
+router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+
+  try {
+    const result = await pool.request()
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT priority, COUNT(*) as count
+        FROM Tickets
+        WHERE domain = @domain
+        GROUP BY priority
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Priority fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch ticket priorities" });
+  }
+});
+router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+
+  try {
+    const result = await pool.request()
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT FORMAT(createdAt, 'yyyy-MM') AS month, COUNT(*) AS count
+        FROM Tickets
+        WHERE domain = @domain
+        GROUP BY FORMAT(createdAt, 'yyyy-MM')
+        ORDER BY month
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Monthly trends fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch monthly trends" });
+  }
+});
 
 // ✅ All Tickets Route (Add this!)
 router.get("/", authMiddleware, async (req, res) => {

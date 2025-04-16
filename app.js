@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
+const aichatRoutes = require("./routes/aichatRoutes");
+app.use("/api/aichat", aichatRoutes);
+
 
 // Load environment variables
 dotenv.config();

@@ -177,8 +177,7 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ All Tickets Route
-// ✅ All Tickets Route (Updated for filters and required fields)
+// ✅ All Tickets Route (Correct version with ticketType)
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -188,7 +187,7 @@ router.get("/", authMiddleware, async (req, res) => {
       .input("domain", sql.NVarChar, domain)
       .query(`
         SELECT id, ticketId, title, description, priority, status,
-               createdBy, createdAt, department, assignedTo
+               createdBy, createdAt, department, assignedTo, ticketType
         FROM Tickets
         WHERE domain = @domain
         ORDER BY createdAt DESC
@@ -200,6 +199,7 @@ router.get("/", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tickets" });
   }
 });
+
 // ✅ Get Single Ticket by ID
 router.get("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
@@ -227,31 +227,8 @@ router.get("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket" });
   }
 });
-// ✅ All Tickets Route (Updated to include ticketType)
-router.get("/", authMiddleware, async (req, res) => {
-  await poolConnect;
-  const domain = req.user.domain;
 
-  try {
-    const result = await pool.request()
-      .input("domain", sql.NVarChar, domain)
-      .query(`
-        SELECT id, ticketId, title, description, priority, status,
-               createdBy, createdAt, department, assignedTo, ticketType
-        FROM Tickets
-        WHERE domain = @domain
-        ORDER BY createdAt DESC
-      `);
-
-    res.json(result.recordset);
-  } catch (err) {
-    console.error("❌ All tickets fetch failed:", err);
-    res.status(500).json({ error: "Failed to fetch tickets" });
-  }
-});
-
-
-// ✅ Create Ticket Route with Prefix ID
+// ✅ Create Ticket Route with Prefixed Ticket ID
 router.post("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;

@@ -87,6 +87,8 @@ router.get("/dashboard/summary", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch dashboard summary" });
   }
 });
+
+// ✅ Ticket Type Stats
 router.get("/dashboard/types", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -95,10 +97,10 @@ router.get("/dashboard/types", authMiddleware, async (req, res) => {
     const result = await pool.request()
       .input("domain", sql.NVarChar, domain)
       .query(`
-        SELECT type, COUNT(*) as count
+        SELECT ticketType AS type, COUNT(*) as count
         FROM Tickets
         WHERE domain = @domain
-        GROUP BY type
+        GROUP BY ticketType
       `);
 
     res.json(result.recordset);
@@ -107,6 +109,8 @@ router.get("/dashboard/types", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket types" });
   }
 });
+
+// ✅ Ticket Status Stats
 router.get("/dashboard/status", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -127,6 +131,8 @@ router.get("/dashboard/status", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket status" });
   }
 });
+
+// ✅ Ticket Priority Stats
 router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -147,6 +153,8 @@ router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket priorities" });
   }
 });
+
+// ✅ Monthly Trends
 router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -169,26 +177,88 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ All Tickets Route (Add this!)
+// ✅ All Tickets Route
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
 
   try {
-    const request = pool.request();
-    request.input("domain", sql.NVarChar, domain);
-
-    const result = await request.query(`
-      SELECT id, title, description, priority, status, createdBy, createdAt
-      FROM Tickets
-      WHERE domain = @domain
-      ORDER BY createdAt DESC
-    `);
+    const result = await pool.request()
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT id, ticketId, title, description, priority, status, createdBy, createdAt
+        FROM Tickets
+        WHERE domain = @domain
+        ORDER BY createdAt DESC
+      `);
 
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ All tickets fetch failed:", err);
     res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
+
+// ✅ Create Ticket Route with Prefix ID
+router.post("/", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const domain = req.user.domain;
+  const createdBy = req.user.email;
+  const {
+    title,
+    description,
+    priority,
+    department,
+    assignedTo,
+    dueDate,
+    isInternal,
+    ticketType,
+    attachments
+  } = req.body;
+
+  try {
+    const request = pool.request();
+    request.input("domain", sql.NVarChar, domain);
+    request.input("title", sql.NVarChar, title);
+    request.input("description", sql.NVarChar, description);
+    request.input("priority", sql.NVarChar, priority);
+    request.input("department", sql.NVarChar, department);
+    request.input("assignedTo", sql.NVarChar, assignedTo);
+    request.input("dueDate", sql.DateTime, dueDate || null);
+    request.input("isInternal", sql.Bit, isInternal || false);
+    request.input("createdBy", sql.NVarChar, createdBy);
+    request.input("ticketType", sql.NVarChar, ticketType);
+    request.input("attachments", sql.NVarChar, attachments || "");
+
+    const insertResult = await request.query(`
+      INSERT INTO Tickets (title, description, priority, department, assignedTo, dueDate, isInternal, createdBy, domain, ticketType, attachments)
+      OUTPUT INSERTED.id
+      VALUES (@title, @description, @priority, @department, @assignedTo, @dueDate, @isInternal, @createdBy, @domain, @ticketType, @attachments)
+    `);
+
+    const insertedId = insertResult.recordset[0].id;
+
+    const prefixMap = {
+      "Incident": "INC",
+      "Service Request": "SR",
+      "Change Request": "CHG",
+      "Problem": "PRB",
+      "Task": "TASK"
+    };
+    const prefix = prefixMap[ticketType] || "TCK";
+    const ticketId = `${prefix}-${insertedId}`;
+
+    const updateRequest = pool.request();
+    updateRequest.input("ticketId", sql.NVarChar, ticketId);
+    updateRequest.input("id", sql.Int, insertedId);
+    await updateRequest.query(`
+      UPDATE Tickets SET ticketId = @ticketId WHERE id = @id
+    `);
+
+    res.status(201).json({ success: true, ticketId });
+  } catch (err) {
+    console.error("❌ Ticket creation failed:", err);
+    res.status(500).json({ error: "Failed to create ticket" });
   }
 });
 

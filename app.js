@@ -1,18 +1,17 @@
-// app.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
 
-// ✅ Load environment variables
+// Load environment variables
 dotenv.config();
 
-// ✅ Initialize Express app
+// Initialize Express app
 const app = express();
 
 // ✅ CORS Configuration
 app.use(cors({
-  origin: '*', // 🔐 Replace with frontend URL in production
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -20,7 +19,7 @@ app.use(cors({
 // ✅ JSON Middleware
 app.use(express.json());
 
-// ✅ Request Logger (helps in Azure logs)
+// ✅ Request Logger
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -34,10 +33,10 @@ poolConnect
     process.exit(1);
   });
 
-// ✅ Register Routes
+// ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
-app.use('/api/aichat', require('./routes/aichatRoutes')); // ✅ AI Chat route
+app.use('/api/aichat', require('./routes/aichatRoutes')); // 👈 THIS LINE MUST BE BELOW app initialized
 
 // ✅ Health Check
 app.get('/', (req, res) => {

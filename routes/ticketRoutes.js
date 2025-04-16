@@ -200,6 +200,33 @@ router.get("/", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tickets" });
   }
 });
+// ✅ Get Single Ticket by ID
+router.get("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { id } = req.params;
+  const domain = req.user.domain;
+
+  try {
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT id, ticketId, title, description, priority, status,
+               department, assignedTo, createdBy, createdAt, attachments
+        FROM Tickets
+        WHERE id = @id AND domain = @domain
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error("❌ Ticket fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
 
 
 // ✅ Create Ticket Route with Prefix ID

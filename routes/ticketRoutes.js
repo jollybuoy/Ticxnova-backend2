@@ -178,6 +178,7 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
 });
 
 // ✅ All Tickets Route
+// ✅ All Tickets Route (Updated for filters and required fields)
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -186,7 +187,8 @@ router.get("/", authMiddleware, async (req, res) => {
     const result = await pool.request()
       .input("domain", sql.NVarChar, domain)
       .query(`
-        SELECT id, ticketId, title, description, priority, status, createdBy, createdAt
+        SELECT id, ticketId, title, description, priority, status,
+               createdBy, createdAt, department, assignedTo
         FROM Tickets
         WHERE domain = @domain
         ORDER BY createdAt DESC
@@ -198,6 +200,7 @@ router.get("/", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tickets" });
   }
 });
+
 
 // ✅ Create Ticket Route with Prefix ID
 router.post("/", authMiddleware, async (req, res) => {

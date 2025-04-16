@@ -15,13 +15,13 @@ const openai = new OpenAIApi(configuration);
 router.post("/ask", authMiddleware, async (req, res) => {
   const { message } = req.body;
 
-  if (!message || message.trim() === "") {
-    return res.status(400).json({ error: "Message is required" });
+  if (!message || message.trim() === "" || message.length > 1000) {
+    return res.status(400).json({ error: "Valid message (max 1000 characters) is required" });
   }
 
   try {
     const completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo", // You can change to gpt-4 if needed
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
@@ -29,7 +29,7 @@ router.post("/ask", authMiddleware, async (req, res) => {
         },
         {
           role: "user",
-          content: message,
+          content: message.trim(),
         },
       ],
       temperature: 0.7,
@@ -39,7 +39,7 @@ router.post("/ask", authMiddleware, async (req, res) => {
     const reply = completion.data.choices[0].message.content.trim();
     res.json({ reply });
   } catch (err) {
-    console.error("❌ OpenAI error:", err);
+    console.error("❌ OpenAI error:", err.response?.data || err.message || err);
     res.status(500).json({ error: "AI response failed" });
   }
 });

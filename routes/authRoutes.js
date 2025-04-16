@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 🔐 Login Route (No changes needed)
+// 🔐 Login Route (Updated to include name in token)
 router.post('/login', async (req, res) => {
   await poolConnect;
   const { email, password } = req.body;
@@ -50,12 +50,14 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
+    // ✅ Include name in token
     const token = jwt.sign(
       {
         id: user.id,
+        name: user.name, // ✅ Added
         email: user.email,
         role: user.role,
-        domain: user.domain, // Include domain in token for easy access
+        domain: user.domain
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }

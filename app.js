@@ -1,20 +1,18 @@
+// app.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
-const aichatRoutes = require("./routes/aichatRoutes");
-app.use("/api/aichat", aichatRoutes);
 
-
-// Load environment variables
+// ✅ Load environment variables
 dotenv.config();
 
-// Initialize Express app
+// ✅ Initialize Express app
 const app = express();
 
 // ✅ CORS Configuration
 app.use(cors({
-  origin: '*', // ✅ In production, replace with specific frontend URL
+  origin: '*', // 🔐 Replace with frontend URL in production
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -22,7 +20,7 @@ app.use(cors({
 // ✅ JSON Middleware
 app.use(express.json());
 
-// ✅ Request Logger (optional but useful for Azure logs)
+// ✅ Request Logger (helps in Azure logs)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -33,14 +31,15 @@ poolConnect
   .then(() => console.log('✅ Connected to Azure SQL Database'))
   .catch(err => {
     console.error('❌ DB Connection Failed:', err);
-    process.exit(1); // Exit on DB failure
+    process.exit(1);
   });
 
-// ✅ Routes
+// ✅ Register Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/aichat', require('./routes/aichatRoutes')); // ✅ AI Chat route
 
-// ✅ Health Check (Azure will call this)
+// ✅ Health Check
 app.get('/', (req, res) => {
   res.status(200).send('🚀 Ticxnova API is up and running!');
 });
@@ -56,7 +55,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// ✅ Start Server on Azure Expected PORT
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

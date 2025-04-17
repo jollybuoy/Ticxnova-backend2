@@ -4,29 +4,19 @@ const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
-// ✅ Safely load OpenAI key
-const openAIKey = process.env.OPENAI_API_KEY;
-
-if (!openAIKey) {
-  console.warn("⚠️ OPENAI_API_KEY not set. AI Chatbot is disabled.");
+// ✅ Load OpenAI key from environment variables
+if (!process.env.OPENAI_API_KEY) {
+  console.warn("⚠️ OPENAI_API_KEY not defined. AI Chat will not work.");
 }
 
-// ✅ Initialize OpenAI only if key is defined
-let openai = null;
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-if (openAIKey) {
-  const configuration = new Configuration({
-    apiKey: openAIKey,
-  });
-  openai = new OpenAIApi(configuration);
-}
+const openai = new OpenAIApi(configuration);
 
-// ✅ POST /api/aichat/ask
+// ✅ AI Chat Endpoint
 router.post("/ask", authMiddleware, async (req, res) => {
-  if (!openai) {
-    return res.status(503).json({ error: "AI service unavailable. Contact admin." });
-  }
-
   const { message } = req.body;
 
   if (!message || message.trim() === "" || message.length > 1000) {
@@ -51,7 +41,7 @@ router.post("/ask", authMiddleware, async (req, res) => {
       max_tokens: 500,
     });
 
-    const reply = completion.data.choices[0].message.content.trim();
+    const reply = completion.data.choices[0]?.message?.content?.trim() || "⚠️ No response from AI";
     res.json({ reply });
   } catch (err) {
     console.error("❌ OpenAI error:", err.response?.data || err.message || err);

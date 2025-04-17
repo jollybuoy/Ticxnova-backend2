@@ -190,7 +190,7 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Get Ticket by ID with Notes
+// ✅ Get Ticket by ID (Includes Notes from dbo.Notes)
 router.get("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
@@ -213,12 +213,12 @@ router.get("/:id", authMiddleware, async (req, res) => {
 
     const ticket = result.recordset[0];
 
-    // ✅ Also fetch notes
+    // ✅ Fetch notes from dbo.Notes
     const notesResult = await pool.request()
       .input("ticketId", sql.Int, ticket.id)
       .query(`
         SELECT id, comment, status, createdBy, createdAt
-        FROM TicketNotes
+        FROM Notes
         WHERE ticketId = @ticketId
         ORDER BY createdAt DESC
       `);
@@ -295,7 +295,7 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Add Note to Ticket
+// ✅ Add Note to Ticket (dbo.Notes)
 router.post("/:id/notes", authMiddleware, async (req, res) => {
   await poolConnect;
   const ticketId = parseInt(req.params.id);
@@ -315,7 +315,7 @@ router.post("/:id/notes", authMiddleware, async (req, res) => {
       .input("createdBy", sql.NVarChar, createdBy)
       .input("domain", sql.NVarChar, domain)
       .query(`
-        INSERT INTO TicketNotes (ticketId, comment, status, createdBy, domain, createdAt)
+        INSERT INTO Notes (ticketId, comment, status, createdBy, domain, createdAt)
         VALUES (@ticketId, @comment, @status, @createdBy, @domain, GETDATE())
       `);
 

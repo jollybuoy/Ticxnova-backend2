@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
+const aichatRoutes = require('./routes/aichatRoutes');
+
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +38,7 @@ poolConnect
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/aichat', aichatRoutes);
 
 // ✅ Health Check (Azure will call this)
 app.get('/', (req, res) => {

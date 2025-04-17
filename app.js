@@ -39,7 +39,7 @@ app.get('/test-ai', (req, res) => {
 // ✅ API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
-app.post('/api/aichat/ask', askAI); // ✅ AI Chat POST route
+app.post('/api/aichat/', askAI); // ✅ AI Chat POST route
 
 // ✅ 404 Handler
 app.use((req, res) => {

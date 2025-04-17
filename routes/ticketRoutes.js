@@ -296,11 +296,11 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // ✅ Add Note to Ticket (dbo.Notes)
+// ✅ Add Note to Ticket using dbo.Notes
 router.post("/:id/notes", authMiddleware, async (req, res) => {
   await poolConnect;
   const ticketId = parseInt(req.params.id);
   const { comment, status } = req.body;
-  const domain = req.user.domain;
   const createdBy = req.user.email;
 
   if (!comment || !status) {
@@ -313,10 +313,9 @@ router.post("/:id/notes", authMiddleware, async (req, res) => {
       .input("comment", sql.NVarChar, comment)
       .input("status", sql.NVarChar, status)
       .input("createdBy", sql.NVarChar, createdBy)
-      .input("domain", sql.NVarChar, domain)
       .query(`
-        INSERT INTO Notes (ticketId, comment, status, createdBy, domain, createdAt)
-        VALUES (@ticketId, @comment, @status, @createdBy, @domain, GETDATE())
+        INSERT INTO Notes (ticketId, comment, status, createdBy, createdAt)
+        VALUES (@ticketId, @comment, @status, @createdBy, GETDATE())
       `);
 
     res.status(201).json({ message: "Note added successfully" });
@@ -325,5 +324,6 @@ router.post("/:id/notes", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to add note" });
   }
 });
+
 
 module.exports = router;

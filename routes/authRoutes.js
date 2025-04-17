@@ -54,6 +54,7 @@ router.post('/login', async (req, res) => {
       {
         id: user.id,
         email: user.email,
+name: user.name,
         role: user.role,
         domain: user.domain, // Include domain in token for easy access
       },

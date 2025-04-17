@@ -313,5 +313,35 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to create ticket" });
   }
 });
+// ✅ Add a Note to a Ticket
+router.post("/:id/notes", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const ticketId = req.params.id;
+  const domain = req.user.domain;
+  const createdBy = req.user.email;
+  const { comment, status } = req.body;
+
+  if (!comment || !status) {
+    return res.status(400).json({ error: "Comment and status are required." });
+  }
+
+  try {
+    await pool.request()
+      .input("ticketId", sql.Int, ticketId)
+      .input("comment", sql.NVarChar, comment)
+      .input("status", sql.NVarChar, status)
+      .input("createdBy", sql.NVarChar, createdBy)
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        INSERT INTO TicketNotes (ticketId, comment, status, createdBy, domain, createdAt)
+        VALUES (@ticketId, @comment, @status, @createdBy, @domain, GETDATE())
+      `);
+
+    res.status(201).json({ message: "Note added successfully" });
+  } catch (err) {
+    console.error("❌ Failed to add note:", err);
+    res.status(500).json({ error: "Failed to add note" });
+  }
+});
 
 module.exports = router;

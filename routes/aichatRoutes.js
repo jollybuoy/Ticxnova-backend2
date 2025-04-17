@@ -4,15 +4,29 @@ const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
-// ✅ Load your OpenAI key from environment variables
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ✅ Safely load OpenAI key
+const openAIKey = process.env.OPENAI_API_KEY;
 
-const openai = new OpenAIApi(configuration);
+if (!openAIKey) {
+  console.warn("⚠️ OPENAI_API_KEY not set. AI Chatbot is disabled.");
+}
 
-// ✅ POST route to send a message to OpenAI and get a reply
+// ✅ Initialize OpenAI only if key is defined
+let openai = null;
+
+if (openAIKey) {
+  const configuration = new Configuration({
+    apiKey: openAIKey,
+  });
+  openai = new OpenAIApi(configuration);
+}
+
+// ✅ POST /api/aichat/ask
 router.post("/ask", authMiddleware, async (req, res) => {
+  if (!openai) {
+    return res.status(503).json({ error: "AI service unavailable. Contact admin." });
+  }
+
   const { message } = req.body;
 
   if (!message || message.trim() === "" || message.length > 1000) {
@@ -25,7 +39,8 @@ router.post("/ask", authMiddleware, async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are a helpful AI assistant inside an IT ticketing system called Ticxnova. You help users with common IT issues, ticket creation guidance, and answer their queries based on system features.",
+          content:
+            "You are a helpful AI assistant inside an IT ticketing system called Ticxnova. You help users with common IT issues, ticket creation guidance, and answer their queries based on system features.",
         },
         {
           role: "user",

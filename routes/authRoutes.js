@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 🔐 Login Route (No changes needed)
+// 🔐 Login Route
 router.post('/login', async (req, res) => {
   await poolConnect;
   const { email, password } = req.body;
@@ -52,11 +52,11 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        domain: users.domain, // Include domain in token for easy access
+        id: user.id,
+        email: user.email,
+        name: user.name, // ✅ Name added correctly
+        role: user.role,
+        domain: user.domain,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }

@@ -36,8 +36,8 @@ app.use('/api/tickets', require('./routes/ticketRoutes'));
 // ✅ AI Chat Route (only if key is present)
 if (process.env.OPENAI_API_KEY) {
   try {
-    const aichatRoutes = require('./routes/aichatRoutes');
-    app.use('/api/aichat', aichatRoutes);
+const aichatRoutes = require('./routes/aichatRoutes');
+app.post('/api/aichat/ask', aichatRoutes);
     console.log("✅ AI Chat route enabled");
   } catch (err) {
     console.error("⚠️ Failed to load AI route:", err.message);

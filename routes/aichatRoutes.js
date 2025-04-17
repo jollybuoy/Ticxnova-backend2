@@ -1,13 +1,6 @@
-const express = require("express");
+// routes/aichatRoutes.js
 const { Configuration, OpenAIApi } = require("openai");
 const authMiddleware = require("../middleware/auth");
-
-const router = express.Router();
-
-// ✅ Load OpenAI key from environment variables
-if (!process.env.OPENAI_API_KEY) {
-  console.warn("⚠️ OPENAI_API_KEY not defined. AI Chat will not work.");
-}
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,38 +8,39 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration);
 
-// ✅ AI Chat Endpoint
-router.post("/ask", authMiddleware, async (req, res) => {
-  const { message } = req.body;
+// Export middleware-wrapped handler directly
+module.exports = [
+  authMiddleware,
+  async (req, res) => {
+    const { message } = req.body;
 
-  if (!message || message.trim() === "" || message.length > 1000) {
-    return res.status(400).json({ error: "Valid message (max 1000 characters) is required" });
-  }
+    if (!message || message.trim() === "" || message.length > 1000) {
+      return res.status(400).json({ error: "Valid message is required" });
+    }
 
-  try {
-    const completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful AI assistant inside an IT ticketing system called Ticxnova. You help users with common IT issues, ticket creation guidance, and answer their queries based on system features.",
-        },
-        {
-          role: "user",
-          content: message.trim(),
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
+    try {
+      const completion = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful AI assistant inside an IT ticketing system called Ticxnova...",
+          },
+          {
+            role: "user",
+            content: message.trim(),
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+      });
 
-    const reply = completion.data.choices[0]?.message?.content?.trim() || "⚠️ No response from AI";
-    res.json({ reply });
-  } catch (err) {
-    console.error("❌ OpenAI error:", err.response?.data || err.message || err);
-    res.status(500).json({ error: "AI response failed" });
-  }
-});
-
-module.exports = router;
+      const reply = completion.data.choices[0].message.content.trim();
+      res.json({ reply });
+    } catch (err) {
+      console.error("❌ OpenAI error:", err.response?.data || err.message);
+      res.status(500).json({ error: "AI response failed" });
+    }
+  },
+];

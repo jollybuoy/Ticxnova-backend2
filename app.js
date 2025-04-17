@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
-const aichatRoutes = require('./routes/aichatRoutes');
+#const aichatRoutes = require('./routes/aichatRoutes');
 
 // ✅ Load environment variables
 dotenv.config();
@@ -32,7 +32,7 @@ app.use((req, res, next) => {
 // ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
-app.use('/api/aichat', aichatRoutes);
+#app.use('/api/aichat', aichatRoutes);
 
 // ✅ Health Check Endpoint
 app.get('/', (req, res) => {

@@ -8,34 +8,18 @@ const router = express.Router();
 // ✨ Register Route with Domain Logic
 router.post('/register', async (req, res) => {
   await poolConnect;
-  let { name, email, password, role } = req.body;
+  const { name, email, password, role } = req.body;
 
   try {
-    name = name?.trim();
-    email = email?.trim().toLowerCase();
-    role = role || 'User';
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
-    }
-
-    // 🔍 Check if user already exists
-    const existingUser = await pool.request()
-      .input('email', sql.NVarChar, email)
-      .query('SELECT id FROM Users WHERE email = @email');
-
-    if (existingUser.recordset.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
-
     const hashedPassword = await bcrypt.hash(password, 10);
-    const domain = email.split('@')[1];
+    const domain = email.split('@')[1]; // 🔥 Extract domain
 
-    await pool.request()
+    const request = pool.request();
+    await request
       .input('name', sql.NVarChar, name)
       .input('email', sql.NVarChar, email)
       .input('passwordHash', sql.NVarChar, hashedPassword)
-      .input('role', sql.NVarChar, role)
+      .input('role', sql.NVarChar, role || 'User')
       .input('domain', sql.NVarChar, domain)
       .query(`
         INSERT INTO Users (name, email, passwordHash, role, domain)
@@ -49,14 +33,14 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 🔐 Login Route (Updated to include name in token)
+// 🔐 Login Route (No changes needed)
 router.post('/login', async (req, res) => {
   await poolConnect;
   const { email, password } = req.body;
 
   try {
     const request = pool.request();
-    request.input('email', sql.NVarChar, email.trim().toLowerCase());
+    request.input('email', sql.NVarChar, email);
 
     const result = await request.query('SELECT * FROM Users WHERE email = @email');
     const user = result.recordset[0];
@@ -69,10 +53,9 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       {
         id: user.id,
-        name: user.name,
         email: user.email,
         role: user.role,
-        domain: user.domain
+        domain: user.domain, // Include domain in token for easy access
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }

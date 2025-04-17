@@ -1,45 +1,48 @@
-// ✅ app.js — Entry point for Ticxnova backend
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
-const authRoutes = require('./routes/authRoutes');
-const ticketRoutes = require('./routes/ticketRoutes');
-#const aichatRoutes = require('./routes/aichatRoutes');
 
-// ✅ Load environment variables
+// Load environment variables
 dotenv.config();
 
-// ✅ Initialize Express app
+// Initialize Express app
 const app = express();
 
 // ✅ CORS Configuration
 app.use(cors({
-  origin: '*', // For production: replace with frontend domain
+  origin: '*', // ✅ In production, replace with specific frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// ✅ Middleware to parse JSON
+// ✅ JSON Middleware
 app.use(express.json());
 
-// ✅ Request Logger (helps with Azure log stream debugging)
+// ✅ Request Logger (optional but useful for Azure logs)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
-// ✅ Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tickets', ticketRoutes);
-#app.use('/api/aichat', aichatRoutes);
+// ✅ Database Connection
+poolConnect
+  .then(() => console.log('✅ Connected to Azure SQL Database'))
+  .catch(err => {
+    console.error('❌ DB Connection Failed:', err);
+    process.exit(1); // Exit on DB failure
+  });
 
-// ✅ Health Check Endpoint
+// ✅ Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/tickets', require('./routes/ticketRoutes'));
+
+// ✅ Health Check (Azure will call this)
 app.get('/', (req, res) => {
   res.status(200).send('🚀 Ticxnova API is up and running!');
 });
 
-// ✅ Catch-all for 404s
+// ✅ 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
@@ -50,17 +53,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// ✅ Start Server AFTER successful DB connection
+// ✅ Start Server on Azure Expected PORT
 const PORT = process.env.PORT || 5000;
-
-poolConnect
-  .then(() => {
-    console.log('✅ Connected to Azure SQL Database');
-    app.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('❌ Failed to connect to DB:', err);
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});

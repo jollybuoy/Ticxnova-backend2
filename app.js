@@ -39,7 +39,7 @@ app.use('/api/tickets', require('./routes/ticketRoutes'));
 
 // ✅ Load AI Chat only if API key is available
 if (process.env.OPENAI_API_KEY) {
-  app.use('/api/aichat', require('./routes/aichatRoutes'));
+  app.use('/aichat', require('./routes/aichatRoutes'));
   console.log('✅ AI Chat route enabled');
 } else {
   console.warn('⚠️ OPENAI_API_KEY missing, AI Chatbot route is disabled');

@@ -4,22 +4,18 @@ const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
-// ✅ SLA Stats Route
+// ✅ SLA Stats
 router.get("/sla-stats", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
 
   try {
-    const request = pool.request();
-    request.input("domain", sql.NVarChar, domain);
-
     const stats = {
       avgResolutionTime: 2.3,
       slaViolations: 1,
       longestOpenTicketDays: 7,
       slaCompliancePercent: 90
     };
-
     res.json(stats);
   } catch (err) {
     console.error("❌ SLA stats fetch failed:", err);
@@ -27,7 +23,7 @@ router.get("/sla-stats", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Ticket Activity Log Route
+// ✅ Ticket Activity Log
 router.get("/activity-log", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -49,7 +45,6 @@ router.get("/activity-log", authMiddleware, async (req, res) => {
         timestamp: new Date().toISOString()
       }
     ];
-
     res.json(sampleActivity);
   } catch (err) {
     console.error("❌ Activity log fetch failed:", err);
@@ -57,7 +52,7 @@ router.get("/activity-log", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Dashboard Summary Route
+// ✅ Dashboard Summary
 router.get("/dashboard/summary", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -102,7 +97,6 @@ router.get("/dashboard/types", authMiddleware, async (req, res) => {
         WHERE domain = @domain
         GROUP BY ticketType
       `);
-
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ Types fetch failed:", err);
@@ -124,7 +118,6 @@ router.get("/dashboard/status", authMiddleware, async (req, res) => {
         WHERE domain = @domain
         GROUP BY status
       `);
-
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ Status fetch failed:", err);
@@ -146,7 +139,6 @@ router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
         WHERE domain = @domain
         GROUP BY priority
       `);
-
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ Priority fetch failed:", err);
@@ -169,7 +161,6 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
         GROUP BY FORMAT(createdAt, 'yyyy-MM')
         ORDER BY month
       `);
-
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ Monthly trends fetch failed:", err);
@@ -177,57 +168,7 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ All Tickets Route
-// ✅ All Tickets Route (Updated for filters and required fields)
-router.get("/", authMiddleware, async (req, res) => {
-  await poolConnect;
-  const domain = req.user.domain;
-
-  try {
-    const result = await pool.request()
-      .input("domain", sql.NVarChar, domain)
-      .query(`
-        SELECT id, ticketId, title, description, priority, status,
-               createdBy, createdAt, department, assignedTo
-        FROM Tickets
-        WHERE domain = @domain
-        ORDER BY createdAt DESC
-      `);
-
-    res.json(result.recordset);
-  } catch (err) {
-    console.error("❌ All tickets fetch failed:", err);
-    res.status(500).json({ error: "Failed to fetch tickets" });
-  }
-});
-// ✅ Get Single Ticket by ID
-router.get("/:id", authMiddleware, async (req, res) => {
-  await poolConnect;
-  const { id } = req.params;
-  const domain = req.user.domain;
-
-  try {
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("domain", sql.NVarChar, domain)
-      .query(`
-        SELECT id, ticketId, title, description, priority, status,
-               department, assignedTo, createdBy, createdAt, attachments
-        FROM Tickets
-        WHERE id = @id AND domain = @domain
-      `);
-
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ error: "Ticket not found" });
-    }
-
-    res.json(result.recordset[0]);
-  } catch (err) {
-    console.error("❌ Ticket fetch failed:", err);
-    res.status(500).json({ error: "Failed to fetch ticket" });
-  }
-});
-// ✅ All Tickets Route (Updated to include ticketType)
+// ✅ Get All Tickets
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -242,7 +183,6 @@ router.get("/", authMiddleware, async (req, res) => {
         WHERE domain = @domain
         ORDER BY createdAt DESC
       `);
-
     res.json(result.recordset);
   } catch (err) {
     console.error("❌ All tickets fetch failed:", err);
@@ -250,8 +190,49 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Get Ticket by ID with Notes
+router.get("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { id } = req.params;
+  const domain = req.user.domain;
 
-// ✅ Create Ticket Route with Prefix ID
+  try {
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        SELECT id, ticketId, title, description, priority, status,
+               department, assignedTo, createdBy, createdAt, attachments, ticketType
+        FROM Tickets
+        WHERE id = @id AND domain = @domain
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    const ticket = result.recordset[0];
+
+    // ✅ Also fetch notes
+    const notesResult = await pool.request()
+      .input("ticketId", sql.Int, ticket.id)
+      .query(`
+        SELECT id, comment, status, createdBy, createdAt
+        FROM TicketNotes
+        WHERE ticketId = @ticketId
+        ORDER BY createdAt DESC
+      `);
+
+    ticket.notes = notesResult.recordset;
+
+    res.json(ticket);
+  } catch (err) {
+    console.error("❌ Ticket fetch failed:", err);
+    res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
+
+// ✅ Create Ticket
 router.post("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const domain = req.user.domain;
@@ -311,6 +292,37 @@ router.post("/", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("❌ Ticket creation failed:", err);
     res.status(500).json({ error: "Failed to create ticket" });
+  }
+});
+
+// ✅ Add Note to Ticket
+router.post("/:id/notes", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const ticketId = parseInt(req.params.id);
+  const { comment, status } = req.body;
+  const domain = req.user.domain;
+  const createdBy = req.user.email;
+
+  if (!comment || !status) {
+    return res.status(400).json({ error: "Comment and status are required." });
+  }
+
+  try {
+    await pool.request()
+      .input("ticketId", sql.Int, ticketId)
+      .input("comment", sql.NVarChar, comment)
+      .input("status", sql.NVarChar, status)
+      .input("createdBy", sql.NVarChar, createdBy)
+      .input("domain", sql.NVarChar, domain)
+      .query(`
+        INSERT INTO TicketNotes (ticketId, comment, status, createdBy, domain, createdAt)
+        VALUES (@ticketId, @comment, @status, @createdBy, @domain, GETDATE())
+      `);
+
+    res.status(201).json({ message: "Note added successfully" });
+  } catch (err) {
+    console.error("❌ Failed to add note:", err);
+    res.status(500).json({ error: "Failed to add note" });
   }
 });
 

@@ -32,6 +32,7 @@ app.get('/', (req, res) => {
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.get('/test-ai', (req, res) => res.send("🧠 AI Route Loaded"));
 
 // ✅ AI Chat Route (only if key is present)
 if (process.env.OPENAI_API_KEY) {

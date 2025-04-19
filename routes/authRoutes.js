@@ -54,7 +54,7 @@ router.post('/login', async (req, res) => {
       {
         id: user.id,
         email: user.email,
-        name: user.name, // ✅ Name added correctly
+        name: user.name,
         role: user.role,
         domain: user.domain,
       },
@@ -66,6 +66,51 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// 🔐 Microsoft Login Route
+router.post('/microsoft-login', async (req, res) => {
+  await poolConnect;
+  const { email, name } = req.body;
+
+  try {
+    const domain = email.split('@')[1];
+    const request = pool.request();
+    request.input('email', sql.VarChar, email);
+
+    const result = await request.query('SELECT * FROM Users WHERE email = @email');
+    let user = result.recordset[0];
+
+    if (!user) {
+      // New user, insert
+      await pool
+        .request()
+        .input('name', sql.VarChar, name)
+        .input('email', sql.VarChar, email)
+        .input('role', sql.VarChar, 'User')
+        .input('domain', sql.VarChar, domain)
+        .query(`
+          INSERT INTO Users (name, email, role, domain)
+          VALUES (@name, @email, @role, @domain)
+        `);
+    }
+
+    const token = jwt.sign(
+      {
+        email,
+        name,
+        role: 'User',
+        domain,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    res.status(200).json({ token });
+  } catch (err) {
+    console.error('❌ Microsoft Login error:', err);
+    res.status(500).json({ error: 'Microsoft login failed' });
   }
 });
 

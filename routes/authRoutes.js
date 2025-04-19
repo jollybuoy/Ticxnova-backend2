@@ -69,39 +69,42 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 🔐 Microsoft Login Route
+// 🔐 Microsoft Login Route (auto-register)
 router.post('/microsoft-login', async (req, res) => {
   await poolConnect;
-  const { email, name } = req.body;
+  const { name, email } = req.body;
+  const domain = email.split('@')[1];
 
   try {
-    const domain = email.split('@')[1];
-    const request = pool.request();
-    request.input('email', sql.VarChar, email);
+    const checkUser = await pool.request()
+      .input('email', sql.NVarChar, email)
+      .query('SELECT * FROM Users WHERE email = @email');
 
-    const result = await request.query('SELECT * FROM Users WHERE email = @email');
-    let user = result.recordset[0];
+    let user = checkUser.recordset[0];
 
+    // 🔄 Auto-register if user does not exist
     if (!user) {
-      // New user, insert
-      await pool
-        .request()
-        .input('name', sql.VarChar, name)
-        .input('email', sql.VarChar, email)
-        .input('role', sql.VarChar, 'User')
-        .input('domain', sql.VarChar, domain)
+      const insertUser = await pool.request()
+        .input('name', sql.NVarChar, name || 'Microsoft User')
+        .input('email', sql.NVarChar, email)
+        .input('role', sql.NVarChar, 'User')
+        .input('domain', sql.NVarChar, domain)
         .query(`
           INSERT INTO Users (name, email, role, domain)
+          OUTPUT INSERTED.*
           VALUES (@name, @email, @role, @domain)
         `);
+
+      user = insertUser.recordset[0];
     }
 
     const token = jwt.sign(
       {
-        email,
-        name,
-        role: 'User',
-        domain,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        domain: user.domain,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
@@ -109,8 +112,8 @@ router.post('/microsoft-login', async (req, res) => {
 
     res.status(200).json({ token });
   } catch (err) {
-    console.error('❌ Microsoft Login error:', err);
-    res.status(500).json({ error: 'Microsoft login failed' });
+    console.error("❌ Microsoft login error:", err);
+    res.status(500).json({ error: "Microsoft login failed" });
   }
 });
 

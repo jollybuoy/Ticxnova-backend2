@@ -1,6 +1,9 @@
+// ✅ Backend: Update your `app.js` to support socket.io
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http');
+const { Server } = require('socket.io');
 const { poolConnect } = require('./config/db');
 
 dotenv.config();
@@ -46,7 +49,27 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// ✅ Replace app.listen with http server and socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('🔌 New socket connected:', socket.id);
+
+  // Example test message
+  socket.emit('notification', { message: '📢 Connected to Ticxnova backend socket!' });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected:', socket.id);
+  });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`✅ Server running with Socket.IO at http://localhost:${PORT}`);
 });

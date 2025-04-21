@@ -1,4 +1,3 @@
-// authRoutes.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -80,7 +79,7 @@ router.post("/microsoft-login", async (req, res) => {
   const domain = email.split("@")[1];
 
   try {
-    const result = await pool.request()
+    let result = await pool.request()
       .input("email", sql.NVarChar, email)
       .query("SELECT * FROM Users WHERE email = @email");
 
@@ -99,11 +98,17 @@ router.post("/microsoft-login", async (req, res) => {
           VALUES (@name, @email, @passwordHash, @role, @domain)
         `);
 
-      user = { name, email, role: "User", domain };
+      // Re-fetch the new user with ID
+      result = await pool.request()
+        .input("email", sql.NVarChar, email)
+        .query("SELECT * FROM Users WHERE email = @email");
+
+      user = result.recordset[0];
     }
 
     const token = jwt.sign(
       {
+        id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,

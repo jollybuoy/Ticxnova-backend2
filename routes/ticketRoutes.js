@@ -8,16 +8,14 @@ const router = express.Router();
 router.get("/sla-stats", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain, email } = req.user;
-  const { filterBy } = req.query;
 
   try {
     const stats = {
       avgResolutionTime: 2.3,
       slaViolations: 1,
       longestOpenTicketDays: 7,
-      slaCompliancePercent: 90
+      slaCompliancePercent: 90,
     };
-
     res.json(stats);
   } catch (err) {
     console.error("❌ SLA stats fetch failed:", err);
@@ -37,15 +35,15 @@ router.get("/activity-log", authMiddleware, async (req, res) => {
         ticketId: 101,
         action: "updated",
         status: "In Progress",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
       {
         user: email,
         ticketId: 102,
         action: "created",
         priority: "High",
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     ];
     res.json(sampleActivity);
   } catch (err) {
@@ -82,7 +80,7 @@ router.get("/dashboard/summary", authMiddleware, async (req, res) => {
     res.json({
       total: summary.totalTickets,
       open: summary.openTickets,
-      closed: summary.closedTickets
+      closed: summary.closedTickets,
     });
   } catch (err) {
     console.error("❌ Dashboard summary fetch failed:", err);
@@ -232,7 +230,36 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Update Ticket (status, department, assignedTo)
+// ✅ Get Ticket by ID (including notes)
+router.get("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain } = req.user;
+  const { id } = req.params;
+
+  try {
+    const ticketResult = await pool.request()
+      .input("id", sql.Int, id)
+      .input("domain", sql.NVarChar, domain)
+      .query("SELECT * FROM Tickets WHERE id = @id AND domain = @domain");
+
+    const ticket = ticketResult.recordset[0];
+
+    if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+
+    const notesResult = await pool.request()
+      .input("ticketId", sql.Int, id)
+      .query("SELECT * FROM Notes WHERE ticketId = @ticketId ORDER BY createdAt DESC");
+
+    ticket.notes = notesResult.recordset;
+
+    res.json(ticket);
+  } catch (err) {
+    console.error("❌ Failed to fetch ticket by ID:", err);
+    res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
+
+// ✅ Update Ticket
 router.patch("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
   const { id } = req.params;

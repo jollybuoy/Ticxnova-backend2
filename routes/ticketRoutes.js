@@ -232,4 +232,41 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Get Ticket By ID
+router.get("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { id } = req.params;
+  const { domain } = req.user;
+
+  try {
+    const request = pool.request()
+      .input("id", sql.Int, id)
+      .input("domain", sql.NVarChar, domain);
+
+    const ticketQuery = `
+      SELECT * FROM Tickets WHERE id = @id AND domain = @domain
+    `;
+    const notesQuery = `
+      SELECT * FROM TicketNotes WHERE ticketId = @id ORDER BY createdAt DESC
+    `;
+
+    const [ticketResult, notesResult] = await Promise.all([
+      request.query(ticketQuery),
+      request.query(notesQuery)
+    ]);
+
+    if (ticketResult.recordset.length === 0) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    const ticket = ticketResult.recordset[0];
+    ticket.notes = notesResult.recordset;
+
+    res.json(ticket);
+  } catch (err) {
+    console.error("❌ Failed to fetch ticket by ID:", err);
+    res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
+
 module.exports = router;

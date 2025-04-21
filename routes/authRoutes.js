@@ -70,7 +70,7 @@ router.post("/login", async (req, res) => {
 // 🟨 Microsoft Login (Auto-register if new)
 router.post("/microsoft-login", async (req, res) => {
   await poolConnect;
-  const { name, email } = req.body;
+  const { name, email, department } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
@@ -86,19 +86,18 @@ router.post("/microsoft-login", async (req, res) => {
     let user = result.recordset[0];
 
     if (!user) {
-      // Auto-register Microsoft user
       await pool.request()
         .input("name", sql.NVarChar, name || email)
         .input("email", sql.NVarChar, email)
-        .input("passwordHash", sql.NVarChar, "") // empty since it's Microsoft auth
+        .input("passwordHash", sql.NVarChar, "") // Empty for MS login
         .input("role", sql.NVarChar, "User")
         .input("domain", sql.NVarChar, domain)
+        .input("department", sql.NVarChar, department || "General")
         .query(`
-          INSERT INTO Users (name, email, passwordHash, role, domain)
-          VALUES (@name, @email, @passwordHash, @role, @domain)
+          INSERT INTO Users (name, email, passwordHash, role, domain, department)
+          VALUES (@name, @email, @passwordHash, @role, @domain, @department)
         `);
 
-      // Re-fetch the new user with ID
       result = await pool.request()
         .input("email", sql.NVarChar, email)
         .query("SELECT * FROM Users WHERE email = @email");

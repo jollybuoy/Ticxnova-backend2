@@ -28,6 +28,7 @@ const auth = (req, res, next) => {
     req.user = {
       id: decoded.id,
       email: decoded.email,
+      name: decoded.name,       // ✅ Include this for personalized UI + filters
       role: decoded.role,
       domain: decoded.domain,
     };

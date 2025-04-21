@@ -176,6 +176,28 @@ router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket priorities" });
   }
 });
+// ✅ Get All Tickets (with optional filterBy = "mine")
+router.get("/", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain, email } = req.user;
+  const { filterBy } = req.query;
+
+  try {
+    const request = pool.request().input("domain", sql.NVarChar, domain);
+    let query = "SELECT * FROM Tickets WHERE domain = @domain";
+
+    if (filterBy === "mine") {
+      query += " AND assignedTo = @assignedTo";
+      request.input("assignedTo", sql.NVarChar, email);
+    }
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Failed to fetch tickets:", err);
+    res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
 
 // ✅ Monthly Trends
 router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {

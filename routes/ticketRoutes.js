@@ -11,8 +11,6 @@ router.get("/sla-stats", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const filter = `domain = @domain ${filterBy === "mine" ? "AND assignedTo = @assignedTo" : ""}`;
-
     const stats = {
       avgResolutionTime: 2.3,
       slaViolations: 1,
@@ -27,7 +25,7 @@ router.get("/sla-stats", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Ticket Activity Log (You can customize this later to fetch actual activity logs)
+// ✅ Ticket Activity Log
 router.get("/activity-log", authMiddleware, async (req, res) => {
   await poolConnect;
   const { email } = req.user;
@@ -63,9 +61,7 @@ router.get("/dashboard/summary", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const request = pool.request()
-      .input("domain", sql.NVarChar, domain);
-    
+    const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = `
       SELECT 
         COUNT(*) AS totalTickets,
@@ -101,9 +97,7 @@ router.get("/dashboard/types", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const request = pool.request()
-      .input("domain", sql.NVarChar, domain);
-
+    const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = `
       SELECT ticketType AS type, COUNT(*) as count
       FROM Tickets
@@ -132,9 +126,7 @@ router.get("/dashboard/status", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const request = pool.request()
-      .input("domain", sql.NVarChar, domain);
-
+    const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = `
       SELECT status, COUNT(*) as count
       FROM Tickets
@@ -163,9 +155,7 @@ router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const request = pool.request()
-      .input("domain", sql.NVarChar, domain);
-
+    const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = `
       SELECT priority, COUNT(*) as count
       FROM Tickets
@@ -194,9 +184,7 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   const { filterBy } = req.query;
 
   try {
-    const request = pool.request()
-      .input("domain", sql.NVarChar, domain);
-
+    const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = `
       SELECT FORMAT(createdAt, 'yyyy-MM') AS month, COUNT(*) AS count
       FROM Tickets
@@ -220,3 +208,5 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch monthly trends" });
   }
 });
+
+module.exports = router;

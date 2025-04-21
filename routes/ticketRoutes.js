@@ -176,6 +176,7 @@ router.get("/dashboard/priorities", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch ticket priorities" });
   }
 });
+
 // ✅ Get All Tickets (with optional filterBy = "mine")
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;

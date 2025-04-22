@@ -22,6 +22,85 @@ router.get("/sla-stats", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch SLA stats" });
   }
 });
+// ✅ Create Ticket
+router.post("/", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain, email } = req.user;
+  const {
+    title,
+    description,
+    priority = "Medium",
+    assignedTo,
+    department,
+    ticketType,
+    plannedStart,
+    plannedEnd,
+    requestedItem,
+    justification,
+    riskLevel,
+    symptoms,
+    rootCause,
+    dueDate
+  } = req.body;
+
+  try {
+    const prefixMap = {
+      "Incident": "INC",
+      "Service Request": "SR",
+      "Change Request": "CHG",
+      "Problem": "PRB",
+      "Task": "TASK"
+    };
+    const prefix = prefixMap[ticketType] || "TIC";
+
+    const idResult = await pool.request().query("SELECT ISNULL(MAX(id), 0) + 1 AS nextId FROM Tickets");
+    const nextId = idResult.recordset[0].nextId;
+    const ticketId = `${prefix}-${String(nextId).padStart(4, "0")}`;
+
+    await pool.request()
+      .input("ticketId", sql.NVarChar, ticketId)
+      .input("title", sql.NVarChar, title)
+      .input("description", sql.NVarChar, description)
+      .input("priority", sql.NVarChar, priority)
+      .input("status", sql.NVarChar, "Open")
+      .input("ticketType", sql.NVarChar, ticketType)
+      .input("assignedTo", sql.NVarChar, assignedTo)
+      .input("department", sql.NVarChar, department)
+      .input("createdBy", sql.NVarChar, email)
+      .input("domain", sql.NVarChar, domain)
+      .input("plannedStart", sql.NVarChar, plannedStart || null)
+      .input("plannedEnd", sql.NVarChar, plannedEnd || null)
+      .input("requestedItem", sql.NVarChar, requestedItem || null)
+      .input("justification", sql.NVarChar, justification || null)
+      .input("riskLevel", sql.NVarChar, riskLevel || null)
+      .input("symptoms", sql.NVarChar, symptoms || null)
+      .input("rootCause", sql.NVarChar, rootCause || null)
+      .input("dueDate", sql.NVarChar, dueDate || null)
+      .query(`
+        INSERT INTO Tickets (
+          ticketId, title, description, priority, status, ticketType,
+          assignedTo, department, createdBy, domain,
+          plannedStart, plannedEnd, requestedItem, justification,
+          riskLevel, symptoms, rootCause, dueDate
+        )
+        VALUES (
+          @ticketId, @title, @description, @priority, @status, @ticketType,
+          @assignedTo, @department, @createdBy, @domain,
+          @plannedStart, @plannedEnd, @requestedItem, @justification,
+          @riskLevel, @symptoms, @rootCause, @dueDate
+        )
+      `);
+
+    res.status(201).json({ message: "Ticket created", ticketId });
+  } catch (err) {
+    console.error("❌ Failed to create ticket:", err);
+    res.status(500).json({
+      error: "Failed to create ticket",
+      message: err.message,
+      sql: err.originalError?.info?.message || err.stack
+    });
+  }
+});
 
 // ✅ Ticket Activity Log
 router.get("/activity-log", authMiddleware, async (req, res) => {

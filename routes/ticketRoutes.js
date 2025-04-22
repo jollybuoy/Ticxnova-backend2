@@ -53,15 +53,15 @@ router.post("/", authMiddleware, async (req, res) => {
       .input("department", sql.NVarChar, department)
       .input("createdBy", sql.NVarChar, email)
       .input("domain", sql.NVarChar, domain)
-      .input("plannedStart", sql.NVarChar, plannedStart)
-      .input("plannedEnd", sql.NVarChar, plannedEnd)
-      .input("requestedItem", sql.NVarChar, requestedItem)
-      .input("justification", sql.NVarChar, justification)
-      .input("riskLevel", sql.NVarChar, riskLevel)
-      .input("symptoms", sql.NVarChar, symptoms)
-      .input("rootCause", sql.NVarChar, rootCause)
-      .input("dueDate", sql.NVarChar, dueDate)
-      .input("checklist", sql.NVarChar, checklist)
+      .input("plannedStart", sql.NVarChar, plannedStart || null)
+      .input("plannedEnd", sql.NVarChar, plannedEnd || null)
+      .input("requestedItem", sql.NVarChar, requestedItem || null)
+      .input("justification", sql.NVarChar, justification || null)
+      .input("riskLevel", sql.NVarChar, riskLevel || null)
+      .input("symptoms", sql.NVarChar, symptoms || null)
+      .input("rootCause", sql.NVarChar, rootCause || null)
+      .input("dueDate", sql.NVarChar, dueDate || null)
+      .input("checklist", sql.NVarChar, checklist || null)
       .query(`
         INSERT INTO Tickets (
           ticketId, title, description, priority, status, ticketType,
@@ -80,7 +80,11 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(201).json({ message: "Ticket created", ticketId });
   } catch (err) {
     console.error("❌ Failed to create ticket:", err);
-    res.status(500).json({ error: "Failed to create ticket" });
+    res.status(500).json({
+      error: "Failed to create ticket",
+      message: err.message,
+      sql: err.originalError?.info?.message || err
+    });
   }
 });
 

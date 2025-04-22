@@ -338,14 +338,15 @@ router.patch("/:id", authMiddleware, async (req, res) => {
   try {
     await pool.request()
       .input("id", sql.Int, id)
-      .input("status", sql.NVarChar, status)
-      .input("department", sql.NVarChar, department)
-      .input("assignedTo", sql.NVarChar, assignedTo)
+      .input("status", sql.NVarChar, status || null)
+      .input("department", sql.NVarChar, department || null)
+      .input("assignedTo", sql.NVarChar, assignedTo || null)
       .query(`
         UPDATE Tickets
-        SET status = @status,
-            department = @department,
-            assignedTo = @assignedTo
+        SET 
+          status = ISNULL(@status, status),
+          department = ISNULL(@department, department),
+          assignedTo = ISNULL(@assignedTo, assignedTo)
         WHERE id = @id
       `);
 

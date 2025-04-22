@@ -2,38 +2,29 @@ const express = require("express");
 const { pool, sql, poolConnect } = require("../config/db");
 const authMiddleware = require("../middleware/auth");
 const multer = require("multer");
-const path = require("path");
 
 const router = express.Router();
 
-// ✅ Multer config
-const upload = multer({
-  dest: "uploads/",
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-});
+// ✅ Multer setup
+const upload = multer({ dest: "uploads/", limits: { fileSize: 5 * 1024 * 1024 } });
 
-// ✅ CREATE Ticket (with file)
+// ✅ Create Ticket
 router.post("/", authMiddleware, upload.single("attachment"), async (req, res) => {
   await poolConnect;
   const { domain, email } = req.user;
   const {
-    title, description, priority = "Medium", assignedTo, department,
-    ticketType, plannedStart, plannedEnd, requestedItem,
-    justification, riskLevel, symptoms, rootCause, dueDate
+    title, description, priority = "Medium", assignedTo, department, ticketType,
+    plannedStart, plannedEnd, requestedItem, justification, riskLevel,
+    symptoms, rootCause, dueDate
   } = req.body;
-
   const attachment = req.file ? req.file.filename : null;
 
   try {
     const prefixMap = {
-      Incident: "INC",
-      "Service Request": "SR",
-      "Change Request": "CHG",
-      Problem: "PRB",
-      Task: "TASK",
+      Incident: "INC", "Service Request": "SR", "Change Request": "CHG",
+      Problem: "PRB", Task: "TASK"
     };
     const prefix = prefixMap[ticketType] || "TIC";
-
     const idResult = await pool.request().query("SELECT ISNULL(MAX(id), 0) + 1 AS nextId FROM Tickets");
     const nextId = idResult.recordset[0].nextId;
     const ticketId = `${prefix}-${String(nextId).padStart(4, "0")}`;
@@ -64,8 +55,7 @@ router.post("/", authMiddleware, upload.single("attachment"), async (req, res) =
           assignedTo, department, createdBy, domain,
           plannedStart, plannedEnd, requestedItem, justification,
           riskLevel, symptoms, rootCause, dueDate, attachment
-        )
-        VALUES (
+        ) VALUES (
           @ticketId, @title, @description, @priority, @status, @ticketType,
           @assignedTo, @department, @createdBy, @domain,
           @plannedStart, @plannedEnd, @requestedItem, @justification,
@@ -80,98 +70,11 @@ router.post("/", authMiddleware, upload.single("attachment"), async (req, res) =
   }
 });
 
-// ✅ Other routes
-router.get("/sla-stats", authMiddleware, async (req, res) => {
-  res.json({ avgResolutionTime: 2.3, slaViolations: 1, longestOpenTicketDays: 7, slaCompliancePercent: 90 });
-});
-
-router.get("/activity-log", authMiddleware, async (req, res) => {
-  const { email } = req.user;
-  res.json([
-    { user: email, ticketId: 101, action: "updated", status: "In Progress", timestamp: new Date().toISOString() },
-    { user: email, ticketId: 102, action: "created", priority: "High", timestamp: new Date().toISOString() },
-  ]);
-});
-
-// Dashboard Summary
-router.get("/dashboard/summary", authMiddleware, async (req, res) => {
-  await poolConnect;
-  const { domain, email } = req.user;
-  const { filterBy } = req.query;
-
-  try {
-    const request = pool.request().input("domain", sql.NVarChar, domain);
-    let query = `
-      SELECT 
-        COUNT(*) AS totalTickets,
-        SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) AS openTickets,
-        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closedTickets
-      FROM Tickets WHERE domain = @domain`;
-
-    if (filterBy === "mine") {
-      query += " AND assignedTo = @assignedTo";
-      request.input("assignedTo", sql.NVarChar, email);
-    }
-
-    const result = await request.query(query);
-    res.json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch dashboard summary" });
-  }
-});
-
-// Ticket Type, Status, Priority, Monthly Trends
-["types", "status", "priorities"].forEach((field) => {
-  const column = field === "types" ? "ticketType AS type" : field === "status" ? "status" : "priority";
-  router.get(`/dashboard/${field}`, authMiddleware, async (req, res) => {
-    await poolConnect;
-    const { domain, email } = req.user;
-    const { filterBy } = req.query;
-
-    try {
-      const request = pool.request().input("domain", sql.NVarChar, domain);
-      let query = `SELECT ${column}, COUNT(*) as count FROM Tickets WHERE domain = @domain`;
-      if (filterBy === "mine") {
-        query += " AND assignedTo = @assignedTo";
-        request.input("assignedTo", sql.NVarChar, email);
-      }
-      query += ` GROUP BY ${field === "types" ? "ticketType" : column}`;
-
-      const result = await request.query(query);
-      res.json(result.recordset);
-    } catch (err) {
-      res.status(500).json({ error: `Failed to fetch ${field}` });
-    }
-  });
-});
-
-router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
-  await poolConnect;
-  const { domain, email } = req.user;
-  const { filterBy } = req.query;
-
-  try {
-    const request = pool.request().input("domain", sql.NVarChar, domain);
-    let query = `SELECT FORMAT(createdAt, 'yyyy-MM') AS month, COUNT(*) AS count FROM Tickets WHERE domain = @domain`;
-    if (filterBy === "mine") {
-      query += " AND assignedTo = @assignedTo";
-      request.input("assignedTo", sql.NVarChar, email);
-    }
-    query += ` GROUP BY FORMAT(createdAt, 'yyyy-MM') ORDER BY month`;
-
-    const result = await request.query(query);
-    res.json(result.recordset);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch monthly trends" });
-  }
-});
-
-// All Tickets
+// ✅ All Tickets
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain, email } = req.user;
   const { filterBy } = req.query;
-
   try {
     const request = pool.request().input("domain", sql.NVarChar, domain);
     let query = "SELECT * FROM Tickets WHERE domain = @domain";
@@ -186,25 +89,22 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// Ticket by ID
+// ✅ Ticket by ID
 router.get("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
   const { domain } = req.user;
-
   try {
     const ticketResult = await pool.request()
       .input("id", sql.Int, id)
       .input("domain", sql.NVarChar, domain)
       .query("SELECT * FROM Tickets WHERE id = @id AND domain = @domain");
-
     const ticket = ticketResult.recordset[0];
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });
 
     const notesResult = await pool.request()
       .input("ticketId", sql.Int, id)
       .query("SELECT * FROM Notes WHERE ticketId = @ticketId ORDER BY createdAt DESC");
-
     ticket.notes = notesResult.recordset;
     res.json(ticket);
   } catch (err) {
@@ -212,12 +112,11 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Update Ticket
+// ✅ Update Ticket
 router.patch("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
   const { status, department, assignedTo } = req.body;
-
   try {
     await pool.request()
       .input("id", sql.Int, id)
@@ -235,7 +134,30 @@ router.patch("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Metadata Routes
+// ✅ Dashboard Summary
+router.get("/dashboard/summary", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain, email } = req.user;
+  const { filterBy } = req.query;
+  try {
+    const request = pool.request().input("domain", sql.NVarChar, domain);
+    let query = `
+      SELECT COUNT(*) AS totalTickets,
+             SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) AS openTickets,
+             SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closedTickets
+      FROM Tickets WHERE domain = @domain`;
+    if (filterBy === "mine") {
+      query += " AND assignedTo = @assignedTo";
+      request.input("assignedTo", sql.NVarChar, email);
+    }
+    const result = await request.query(query);
+    res.json(result.recordset[0]);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch dashboard summary" });
+  }
+});
+
+// ✅ Departments metadata
 router.get("/metadata/departments", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain } = req.user;
@@ -250,6 +172,7 @@ router.get("/metadata/departments", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Users metadata
 router.get("/metadata/users", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain } = req.user;

@@ -1,12 +1,10 @@
 const express = require("express");
 const { pool, sql, poolConnect } = require("../config/db");
 const authMiddleware = require("../middleware/auth");
-const multer = require("multer");
 
 const router = express.Router();
 
-// ✅ Multer setup
-const upload = multer({ dest: "uploads/", limits: { fileSize: 5 * 1024 * 1024 } });
+
 
 // ✅ Create Ticket
 router.post("/", authMiddleware, upload.single("attachment"), async (req, res) => {

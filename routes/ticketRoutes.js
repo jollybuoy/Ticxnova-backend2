@@ -393,5 +393,47 @@ router.get("/metadata/users", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
+// ✅ Add a Note to a Ticket
+router.post("/:id/notes", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { email } = req.user;
+  const { id } = req.params;
+  const { comment, status } = req.body;
+
+  try {
+    await pool.request()
+      .input("ticketId", sql.Int, id)
+      .input("comment", sql.NVarChar, comment)
+      .input("status", sql.NVarChar, status)
+      .input("createdBy", sql.NVarChar, email)
+      .query(`
+        INSERT INTO Notes (ticketId, comment, status, createdBy, createdAt)
+        VALUES (@ticketId, @comment, @status, @createdBy, GETDATE())
+      `);
+
+    res.status(201).json({ message: "Note added successfully" });
+  } catch (err) {
+    console.error("❌ Failed to add note:", err);
+    res.status(500).json({ error: "Failed to add note" });
+  }
+});
+
+// ✅ Delete a Note
+router.delete("/:ticketId/notes/:noteId", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { noteId } = req.params;
+
+  try {
+    await pool.request()
+      .input("noteId", sql.Int, noteId)
+      .query("DELETE FROM Notes WHERE id = @noteId");
+
+    res.json({ message: "Note deleted successfully" });
+  } catch (err) {
+    console.error("❌ Failed to delete note:", err);
+    res.status(500).json({ error: "Failed to delete note" });
+  }
+});
+
 
 module.exports = router;

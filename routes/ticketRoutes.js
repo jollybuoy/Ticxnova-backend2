@@ -65,7 +65,7 @@ router.post("/", authMiddleware, async (req, res) => {
         )
       `);
 
-    res.status(201).json({ message: "Ticket created", ticketId });
+res.status(201).json({ message: "Ticket created", ticketId, id: nextId });
   } catch (err) {
     console.error("❌ Failed to create ticket:", err);
     res.status(500).json({ error: "Failed to create ticket", message: err.message });

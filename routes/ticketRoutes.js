@@ -207,5 +207,119 @@ router.get("/dashboard/monthly-trends", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ All Tickets
+router.get("/", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain, email } = req.user;
+  const { filterBy } = req.query;
+
+  try {
+    const request = pool.request().input("domain", sql.NVarChar, domain);
+    let query = "SELECT * FROM Tickets WHERE domain = @domain";
+
+    if (filterBy === "mine") {
+      query += " AND assignedTo = @assignedTo";
+      request.input("assignedTo", sql.NVarChar, email);
+    }
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Failed to fetch tickets:", err);
+    res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
+
+// ✅ Ticket by ID
+router.get("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain } = req.user;
+  const { id } = req.params;
+
+  try {
+    const ticketResult = await pool.request()
+      .input("id", sql.Int, id)
+      .input("domain", sql.NVarChar, domain)
+      .query("SELECT * FROM Tickets WHERE id = @id AND domain = @domain");
+
+    const ticket = ticketResult.recordset[0];
+    if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+
+    const notesResult = await pool.request()
+      .input("ticketId", sql.Int, id)
+      .query("SELECT * FROM Notes WHERE ticketId = @ticketId ORDER BY createdAt DESC");
+
+    ticket.notes = notesResult.recordset;
+    res.json(ticket);
+  } catch (err) {
+    console.error("❌ Failed to fetch ticket by ID:", err);
+    res.status(500).json({ error: "Failed to fetch ticket" });
+  }
+});
+
+// ✅ Update Ticket
+router.patch("/:id", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { id } = req.params;
+  const { status, department, assignedTo } = req.body;
+
+  try {
+    await pool.request()
+      .input("id", sql.Int, id)
+      .input("status", sql.NVarChar, status)
+      .input("department", sql.NVarChar, department)
+      .input("assignedTo", sql.NVarChar, assignedTo)
+      .query(`
+        UPDATE Tickets
+        SET status = @status,
+            department = @department,
+            assignedTo = @assignedTo
+        WHERE id = @id
+      `);
+
+    res.json({ message: "Ticket updated successfully" });
+  } catch (err) {
+    console.error("Failed to update ticket:", err);
+    res.status(500).json({ error: "Failed to update ticket" });
+  }
+});
+
+// ✅ Departments metadata
+router.get("/metadata/departments", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain } = req.user;
+
+  try {
+    const result = await pool
+      .request()
+      .input("domain", sql.NVarChar, domain)
+      .query("SELECT DISTINCT department FROM Users WHERE domain = @domain");
+
+    const departments = result.recordset.map(row => row.department).filter(Boolean);
+    res.json(departments);
+  } catch (err) {
+    console.error("Failed to fetch departments:", err);
+    res.status(500).json({ error: "Failed to fetch departments" });
+  }
+});
+
+// ✅ Users metadata
+router.get("/metadata/users", authMiddleware, async (req, res) => {
+  await poolConnect;
+  const { domain } = req.user;
+
+  try {
+    const result = await pool
+      .request()
+      .input("domain", sql.NVarChar, domain)
+      .query("SELECT name, email, department FROM Users WHERE domain = @domain");
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("Failed to fetch users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 // ✅ Export router
 module.exports = router;

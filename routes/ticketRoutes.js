@@ -333,7 +333,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
 router.patch("/:id", authMiddleware, async (req, res) => {
   await poolConnect;
   const { id } = req.params;
-  const { status, department, assignedTo } = req.body;
+  const { status, department, assignedTo, priority } = req.body;
 
   try {
     await pool.request()
@@ -341,21 +341,24 @@ router.patch("/:id", authMiddleware, async (req, res) => {
       .input("status", sql.NVarChar, status || null)
       .input("department", sql.NVarChar, department || null)
       .input("assignedTo", sql.NVarChar, assignedTo || null)
+      .input("priority", sql.NVarChar, priority || null)
       .query(`
         UPDATE Tickets
         SET 
           status = ISNULL(@status, status),
           department = ISNULL(@department, department),
-          assignedTo = ISNULL(@assignedTo, assignedTo)
+          assignedTo = ISNULL(@assignedTo, assignedTo),
+          priority = ISNULL(@priority, priority)
         WHERE id = @id
       `);
 
     res.json({ message: "Ticket updated successfully" });
   } catch (err) {
-    console.error("Failed to update ticket:", err);
+    console.error("❌ Failed to update ticket:", err);
     res.status(500).json({ error: "Failed to update ticket" });
   }
 });
+
 
 // ✅ Departments metadata
 router.get("/metadata/departments", authMiddleware, async (req, res) => {

@@ -30,6 +30,7 @@ poolConnect
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use("/uploads", express.static("uploads"));
 
 // ✅ Health Check
 app.get('/', (req, res) => {

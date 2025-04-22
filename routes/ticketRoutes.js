@@ -4,7 +4,7 @@ const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
-// ✅ Create Ticket
+// ✅ Create Ticket (updated - checklist removed)
 router.post("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain, email } = req.user;
@@ -22,8 +22,7 @@ router.post("/", authMiddleware, async (req, res) => {
     riskLevel,
     symptoms,
     rootCause,
-    dueDate,
-    checklist
+    dueDate
   } = req.body;
 
   try {
@@ -61,19 +60,18 @@ router.post("/", authMiddleware, async (req, res) => {
       .input("symptoms", sql.NVarChar, symptoms || null)
       .input("rootCause", sql.NVarChar, rootCause || null)
       .input("dueDate", sql.NVarChar, dueDate || null)
-      .input("checklist", sql.NVarChar, checklist || null)
       .query(`
         INSERT INTO Tickets (
           ticketId, title, description, priority, status, ticketType,
           assignedTo, department, createdBy, domain,
           plannedStart, plannedEnd, requestedItem, justification,
-          riskLevel, symptoms, rootCause, dueDate, checklist
+          riskLevel, symptoms, rootCause, dueDate
         )
         VALUES (
           @ticketId, @title, @description, @priority, @status, @ticketType,
           @assignedTo, @department, @createdBy, @domain,
           @plannedStart, @plannedEnd, @requestedItem, @justification,
-          @riskLevel, @symptoms, @rootCause, @dueDate, @checklist
+          @riskLevel, @symptoms, @rootCause, @dueDate
         )
       `);
 

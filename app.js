@@ -12,6 +12,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+const multer = require('multer');
 app.use(express.json());
 
 app.use((req, res, next) => {

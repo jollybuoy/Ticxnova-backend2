@@ -12,7 +12,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-const multer = require('multer');
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -30,7 +29,6 @@ poolConnect
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
-app.use("/uploads", express.static("uploads"));
 
 // ✅ Health Check
 app.get('/', (req, res) => {

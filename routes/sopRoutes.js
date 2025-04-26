@@ -1,76 +1,70 @@
 const express = require("express");
 const multer = require("multer");
+const path = require("path");
 const { pool, sql, poolConnect } = require("../config/db");
 const authMiddleware = require("../middleware/auth");
-const path = require("path");
-const fs = require("fs");
 
 const router = express.Router();
 
-// ✅ Multer setup
-const upload = multer({
-  dest: "uploads/sop/",
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+// ✅ Setup Multer storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/sops"); // store in uploads/sops/ folder
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
+  }
 });
 
-// ✅ Fetch all SOPs
+const upload = multer({ storage: storage });
+
+// ✅ GET all SOP documents
 router.get("/", authMiddleware, async (req, res) => {
   await poolConnect;
   const { domain } = req.user;
 
   try {
-    const result = await pool.request()
+    const result = await pool
+      .request()
       .input("domain", sql.NVarChar, domain)
-      .query(`
-        SELECT id, title, description, tags, fileUrl, fileType, updatedAt
-        FROM Sops
-        WHERE domain = @domain
-        ORDER BY updatedAt DESC
-      `);
+      .query("SELECT * FROM SOPDocuments WHERE domain = @domain ORDER BY uploadedAt DESC");
 
-    const formattedResult = result.recordset.map(sop => ({
-      ...sop,
-      tags: sop.tags ? sop.tags.split(",").map(tag => tag.trim()) : []
-    }));
-
-    res.json(formattedResult);
+    res.json(result.recordset);
   } catch (err) {
-    console.error("❌ Failed to fetch SOPs:", err.message);
-    res.status(500).json({ error: "Failed to fetch SOPs" });
+    console.error("❌ Failed to fetch SOP documents:", err.message);
+    res.status(500).json({ error: "Failed to fetch SOP documents" });
   }
 });
 
-// ✅ Upload a new SOP
-router.post("/upload", authMiddleware, upload.single("file"), async (req, res) => {
+// ✅ POST upload new SOP document
+router.post("/", authMiddleware, upload.single("file"), async (req, res) => {
   await poolConnect;
   const { domain, email } = req.user;
-  const { title, description, tags } = req.body;
+  const { title, description } = req.body;
   const file = req.file;
 
   if (!file) {
-    return res.status(400).json({ error: "File is required" });
+    return res.status(400).json({ error: "No file uploaded" });
   }
 
   try {
-    const fileType = path.extname(file.originalname).substring(1); // like 'pdf'
-    const fileUrl = `/uploads/sop/${file.filename}`;
-
     await pool.request()
       .input("title", sql.NVarChar, title)
       .input("description", sql.NVarChar, description)
-      .input("tags", sql.NVarChar, tags)
-      .input("fileUrl", sql.NVarChar, fileUrl)
-      .input("fileType", sql.NVarChar, fileType)
+      .input("filePath", sql.NVarChar, file.filename)
+      .input("uploadedBy", sql.NVarChar, email)
       .input("domain", sql.NVarChar, domain)
       .query(`
-        INSERT INTO Sops (title, description, tags, fileUrl, fileType, domain)
-        VALUES (@title, @description, @tags, @fileUrl, @fileType, @domain)
+        INSERT INTO SOPDocuments (title, description, filePath, uploadedBy, domain)
+        VALUES (@title, @description, @filePath, @uploadedBy, @domain)
       `);
 
     res.status(201).json({ message: "SOP uploaded successfully" });
   } catch (err) {
-    console.error("❌ Failed to upload SOP:", err.message);
-    res.status(500).json({ error: "Failed to upload SOP" });
+    console.error("❌ Failed to upload SOP document:", err.message);
+    res.status(500).json({ error: "Failed to upload SOP document" });
   }
 });
 

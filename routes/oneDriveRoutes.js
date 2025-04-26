@@ -1,13 +1,18 @@
 const express = require("express");
-const { getAccessToken } = require("../utils/msalAuth"); // We will write this
 const axios = require("axios");
 const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
+// ✅ Get OneDrive Documents
 router.get("/documents", authMiddleware, async (req, res) => {
+  const accessToken = req.headers.authorization?.split(" ")[1]; // Take token from frontend header
+
+  if (!accessToken) {
+    return res.status(401).json({ error: "Access token missing" });
+  }
+
   try {
-    const accessToken = await getAccessToken(req.user); // get access token
     const response = await axios.get("https://graph.microsoft.com/v1.0/me/drive/root/children", {
       headers: {
         Authorization: `Bearer ${accessToken}`
@@ -19,7 +24,7 @@ router.get("/documents", authMiddleware, async (req, res) => {
       .map(file => ({
         id: file.id,
         title: file.name,
-        tags: [],
+        tags: [], // You can later add custom tags if needed
         description: file.name,
         updatedAt: file.lastModifiedDateTime.split("T")[0],
         owner: "Admin",

@@ -36,6 +36,7 @@ poolConnect
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/onedrive', require('./routes/oneDriveRoutes'));
 
 // ✅ Health check
 app.get('/', (req, res) => {

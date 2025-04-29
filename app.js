@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
+const reportRoutes = require('./routes/reportRoutes');
+
 
 dotenv.config();
 const app = express();
@@ -36,6 +38,8 @@ poolConnect
 // ✅ Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
+app.use('/api/reports', reportRoutes);
+
 
 
 // ✅ Health check

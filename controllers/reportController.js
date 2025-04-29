@@ -1,36 +1,44 @@
 const sql = require("mssql");
-const db = require("../config/db"); // Adjust path to your DB config
+const db = require("../config/db");
 
 const getReportSummary = async (req, res) => {
   try {
-    const { startDate, endDate, assignedTo, department } = req.query;
-    const domain = req.user.domain;
+    console.log("🔎 Incoming report request:", req.query);
+    console.log("👤 Decoded user:", req.user);
 
-    let conditions = `WHERE domain = @domain AND createdAt BETWEEN @startDate AND @endDate`;
-    if (assignedTo) conditions += ` AND assignedTo = @assignedTo`;
-    if (department) conditions += ` AND department = @department`;
+    const { startDate, endDate, assignedTo, department } = req.query;
+    const domain = req.user?.domain;
+
+    if (!domain) {
+      console.error("❌ Missing domain in JWT token!");
+      return res.status(400).json({ message: "Missing domain in token" });
+    }
 
     const pool = await sql.connect(db);
-
-    // Fetch all relevant tickets
-    const tickets = await pool.request()
+    const result = await pool.request()
       .input("domain", sql.VarChar, domain)
       .input("startDate", sql.DateTime, new Date(startDate))
       .input("endDate", sql.DateTime, new Date(endDate))
       .input("assignedTo", sql.VarChar, assignedTo || null)
       .input("department", sql.VarChar, department || null)
-      .query(`SELECT priority, status, ticketType, createdAt, resolvedAt, slaMet
-              FROM Tickets ${conditions}`);
+      .query(`
+        SELECT priority, status, ticketType, createdAt, resolvedAt, slaMet
+        FROM Tickets
+        WHERE domain = @domain
+          AND createdAt BETWEEN @startDate AND @endDate
+          AND (@assignedTo IS NULL OR assignedTo = @assignedTo)
+          AND (@department IS NULL OR department = @department)
+      `);
 
-    const rows = tickets.recordset;
-    const total = rows.length;
+    const tickets = result.recordset;
 
-    const resolvedOnTime = rows.filter(t => t.status === 'Closed' && t.slaMet).length;
+    const total = tickets.length;
+    const resolvedOnTime = tickets.filter(t => t.status === 'Closed' && t.slaMet === 1).length;
     const slaPercentage = total ? Math.round((resolvedOnTime / total) * 100) : 0;
 
-    const criticalIssues = rows.filter(t => t.priority === 'P1').length;
+    const criticalIssues = tickets.filter(t => t.priority === 'P1').length;
 
-    const closedTickets = rows.filter(t => t.status === 'Closed' && t.resolvedAt);
+    const closedTickets = tickets.filter(t => t.status === 'Closed' && t.resolvedAt && t.createdAt);
     const avgResolutionTime = closedTickets.length > 0
       ? (
         closedTickets.reduce((sum, t) => {
@@ -40,17 +48,16 @@ const getReportSummary = async (req, res) => {
       ).toFixed(1)
       : 0;
 
-    const weeklyTrends = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
-      const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day);
-      const open = rows.filter(t => new Date(t.createdAt).getDay() === dayIndex && t.status !== 'Closed').length;
-      const closed = rows.filter(t => new Date(t.createdAt).getDay() === dayIndex && t.status === 'Closed').length;
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyTrends = weekdays.map((day, i) => {
+      const open = tickets.filter(t => new Date(t.createdAt).getDay() === i && t.status !== 'Closed').length;
+      const closed = tickets.filter(t => new Date(t.createdAt).getDay() === i && t.status === 'Closed').length;
       return { name: day, Open: open, Closed: closed };
     });
 
-    const typeNames = ['Incident', 'Service Request', 'Change Request', 'Problem', 'Task'];
-    const ticketTypes = typeNames.map(type => ({
+    const ticketTypes = ['Incident', 'Service Request', 'Change Request', 'Problem', 'Task'].map(type => ({
       name: type,
-      value: rows.filter(t => t.ticketType === type).length,
+      value: tickets.filter(t => t.ticketType === type).length,
     }));
 
     res.json({
@@ -58,11 +65,12 @@ const getReportSummary = async (req, res) => {
       criticalIssues,
       avgResolutionTime,
       weeklyTrends,
-      ticketTypes,
+      ticketTypes
     });
-  } catch (error) {
-    console.error("Report summary error:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+  } catch (err) {
+    console.error("🔥 Report summary failed:", err);
+    res.status(500).json({ message: "Internal server error", error: err.message });
   }
 };
 

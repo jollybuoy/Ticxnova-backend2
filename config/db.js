@@ -8,6 +8,7 @@ dotenv.config();
 console.log("🔍 DB Config - server:", process.env.DB_SERVER);
 console.log("🔍 DB Config - user:", process.env.DB_USER);
 console.log("🔍 DB Config - database:", process.env.DB_NAME);
+console.log("🔍 DB_SERVER loaded from env:", process.env.DB_SERVER);
 
 // ✅ Construct the SQL config
 const config = {

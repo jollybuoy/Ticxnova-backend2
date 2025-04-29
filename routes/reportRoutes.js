@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getReportSummary } = require('../controllers/reportController');
-const authenticateToken = require('../middleware/auth');
+const { getSimpleReport } = require('../controllers/reportController');
+const auth = require('../middleware/auth');
 
-router.get('/summary', authenticateToken, getReportSummary);
+// New simplified report route
+router.get('/simple', auth, getSimpleReport);
 
 module.exports = router;
-

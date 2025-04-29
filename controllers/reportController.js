@@ -1,54 +1,56 @@
-
-const Ticket = require('../models/Ticket'); // adjust path if needed
+const sql = require("mssql");
+const db = require("../config/db"); // Adjust path to your DB config
 
 const getReportSummary = async (req, res) => {
   try {
     const { startDate, endDate, assignedTo, department } = req.query;
     const domain = req.user.domain;
 
-    const query = {
-      domain,
-      createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) },
-    };
+    let conditions = `WHERE domain = @domain AND createdAt BETWEEN @startDate AND @endDate`;
+    if (assignedTo) conditions += ` AND assignedTo = @assignedTo`;
+    if (department) conditions += ` AND department = @department`;
 
-    if (assignedTo) query.assignedTo = assignedTo;
-    if (department) query.department = department;
+    const pool = await sql.connect(db);
 
-    const tickets = await Ticket.find(query);
+    // Fetch all relevant tickets
+    const tickets = await pool.request()
+      .input("domain", sql.VarChar, domain)
+      .input("startDate", sql.DateTime, new Date(startDate))
+      .input("endDate", sql.DateTime, new Date(endDate))
+      .input("assignedTo", sql.VarChar, assignedTo || null)
+      .input("department", sql.VarChar, department || null)
+      .query(`SELECT priority, status, ticketType, createdAt, resolvedAt, slaMet
+              FROM Tickets ${conditions}`);
 
-    const total = tickets.length;
-    const resolvedOnTime = tickets.filter(t => t.status === 'Closed' && t.slaMet).length;
+    const rows = tickets.recordset;
+    const total = rows.length;
+
+    const resolvedOnTime = rows.filter(t => t.status === 'Closed' && t.slaMet).length;
     const slaPercentage = total ? Math.round((resolvedOnTime / total) * 100) : 0;
 
-    const criticalIssues = tickets.filter(t => t.priority === 'P1').length;
-    const avgResolutionTime = (() => {
-      const closed = tickets.filter(t => t.status === 'Closed' && t.resolvedAt);
-      if (!closed.length) return 0;
-      const totalHours = closed.reduce((sum, t) => {
-        const created = new Date(t.createdAt);
-        const resolved = new Date(t.resolvedAt);
-        return sum + (resolved - created) / (1000 * 60 * 60);
-      }, 0);
-      return (totalHours / closed.length).toFixed(1);
-    })();
+    const criticalIssues = rows.filter(t => t.priority === 'P1').length;
+
+    const closedTickets = rows.filter(t => t.status === 'Closed' && t.resolvedAt);
+    const avgResolutionTime = closedTickets.length > 0
+      ? (
+        closedTickets.reduce((sum, t) => {
+          const hours = (new Date(t.resolvedAt) - new Date(t.createdAt)) / (1000 * 60 * 60);
+          return sum + hours;
+        }, 0) / closedTickets.length
+      ).toFixed(1)
+      : 0;
 
     const weeklyTrends = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
-      const open = tickets.filter(t => {
-        const d = new Date(t.createdAt).getDay();
-        return d === ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day) && t.status !== 'Closed';
-      }).length;
-
-      const closed = tickets.filter(t => {
-        const d = new Date(t.createdAt).getDay();
-        return d === ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day) && t.status === 'Closed';
-      }).length;
-
+      const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day);
+      const open = rows.filter(t => new Date(t.createdAt).getDay() === dayIndex && t.status !== 'Closed').length;
+      const closed = rows.filter(t => new Date(t.createdAt).getDay() === dayIndex && t.status === 'Closed').length;
       return { name: day, Open: open, Closed: closed };
     });
 
-    const ticketTypes = ['Incident', 'Service Request', 'Change Request', 'Problem', 'Task'].map(type => ({
+    const typeNames = ['Incident', 'Service Request', 'Change Request', 'Problem', 'Task'];
+    const ticketTypes = typeNames.map(type => ({
       name: type,
-      value: tickets.filter(t => t.type === type).length,
+      value: rows.filter(t => t.ticketType === type).length,
     }));
 
     res.json({
@@ -58,9 +60,9 @@ const getReportSummary = async (req, res) => {
       weeklyTrends,
       ticketTypes,
     });
-  } catch (err) {
-    console.error('Error in report summary:', err);
-    res.status(500).json({ message: 'Internal server error' });
+  } catch (error) {
+    console.error("Report summary error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 

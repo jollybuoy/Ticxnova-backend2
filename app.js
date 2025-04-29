@@ -2,32 +2,34 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { poolConnect } = require('./config/db');
+
+// Route files
+const authRoutes = require('./routes/authRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
+// Auth middleware
+const auth = require('./middleware/auth');
 
 dotenv.config();
 const app = express();
 
-// ✅ Define your CORS options
+// ✅ CORS Configuration
 const corsOptions = {
   origin: 'https://yellow-dune-0ed10881e.6.azurestaticapps.net',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
-
-// ✅ Apply CORS once globally
 app.use(cors(corsOptions));
 
-// ✅ Body parser
-app.use(express.json());
-
-// ✅ Logging middleware
+// ✅ Middleware
+app.use(express.json()); // Body parser
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
-// ✅ Database connection
+// ✅ Database Connection
 poolConnect
   .then(() => console.log('✅ Connected to Azure SQL Database'))
   .catch(err => {
@@ -36,29 +38,27 @@ poolConnect
   });
 
 // ✅ Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/tickets', require('./routes/ticketRoutes'));
-app.use('/api/reports', reportRoutes);
+app.use('/api/auth', authRoutes);             // Public
+app.use('/api/tickets', auth, ticketRoutes);  // Protected
+app.use('/api/reports', auth, reportRoutes);  // Protected
 
-
-
-// ✅ Health check
+// ✅ Health Check
 app.get('/', (req, res) => {
   res.status(200).send('🚀 Ticxnova API is up and running!');
 });
 
-// ✅ 404 handler
+// ✅ 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// ✅ Global error handler
+// ✅ Global Error Handler
 app.use((err, req, res, next) => {
   console.error('❌ Unhandled Error:', err.stack || err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// ✅ Start the server
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);

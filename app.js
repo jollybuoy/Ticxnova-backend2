@@ -16,10 +16,12 @@ const app = express();
 
 // ✅ CORS Configuration
 const corsOptions = {
-  origin: 'https://yellow-dune-0ed10881e.6.azurestaticapps.net',
+origin: ['https://ticxnova.com', 'https://yellow-dune-0ed10881e.6.azurestaticapps.net'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 };
+
 app.use(cors(corsOptions));
 
 // ✅ Middleware
